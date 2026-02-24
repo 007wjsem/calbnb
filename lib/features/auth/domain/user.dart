@@ -8,8 +8,9 @@ class User {
   final String? phone;
   final String? address;
   final String? emergencyContact;
-  final double? payRate; // Optional, useful for cleaners or inspectors
+  final double? payRate;
   final bool isActive;
+  final String? companyId; // Which company this user belongs to
 
   const User({
     required this.id,
@@ -21,5 +22,21 @@ class User {
     this.address,
     this.emergencyContact,
     this.payRate,
+    this.companyId,
   });
+
+  User copyWith({String? companyId}) {
+    return User(
+      id: id,
+      username: username,
+      role: role,
+      isActive: isActive,
+      email: email,
+      phone: phone,
+      address: address,
+      emergencyContact: emergencyContact,
+      payRate: payRate,
+      companyId: companyId ?? this.companyId,
+    );
+  }
 }

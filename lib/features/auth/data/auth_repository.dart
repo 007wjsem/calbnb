@@ -64,6 +64,7 @@ class AuthController extends _$AuthController {
         address: data['address']?.toString(),
         emergencyContact: data['emergencyContact']?.toString(),
         payRate: data['payRate'] != null ? double.tryParse(data['payRate'].toString()) : null,
+        companyId: data['companyId']?.toString(),
       );
     } else {
       await auth.FirebaseAuth.instance.signOut();
