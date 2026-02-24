@@ -1,16 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/routing/app_router.dart';
-import 'core/theme/app_colors.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'core/services/update_service.dart';
+import 'core/routing/app_router.dart';
+import 'core/theme/app_colors.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Desktop platforms require code signing to access the native Keychain.
+  // Since we are building unsigned free distribution binaries, we must disable 
+  // auth persistence so the app doesn't crash when trying to write to the Keychain.
+  if (!kIsWeb && (Platform.isMacOS || Platform.isWindows)) {
+    await FirebaseAuth.instance.setPersistence(Persistence.NONE);
+  }
+
   await UpdateService.initialize();
   runApp(const ProviderScope(child: MyApp()));
 }

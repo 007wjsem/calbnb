@@ -27,14 +27,15 @@ class UpdateService {
 
     await _remoteConfig.setConfigSettings(RemoteConfigSettings(
       fetchTimeout: const Duration(minutes: 1),
-      minimumFetchInterval: const Duration(hours: 1), // Check hourly
+      minimumFetchInterval: Duration.zero, // Changed to zero to force immediate updates during testing
     ));
 
     // Set defaults so the app doesn't crash if it can't reach Firebase
     await _remoteConfig.setDefaults(const {
       'latest_desktop_version': '1.0.0',
       'force_update_required': false,
-      'desktop_download_url': 'https://calbnb.web.app/download',
+      'mac_download_url': '',
+      'windows_download_url': '',
     });
 
     try {
@@ -53,7 +54,13 @@ class UpdateService {
 
     final latestVersion = _remoteConfig.getString('latest_desktop_version');
     final isForced = _remoteConfig.getBool('force_update_required');
-    final downloadUrl = _remoteConfig.getString('desktop_download_url');
+    
+    String downloadUrl = '';
+    if (Platform.isMacOS) {
+      downloadUrl = _remoteConfig.getString('mac_download_url');
+    } else if (Platform.isWindows) {
+      downloadUrl = _remoteConfig.getString('windows_download_url');
+    }
 
     final bool updateAvailable = _isVersionGreaterThan(latestVersion, currentVersion);
 

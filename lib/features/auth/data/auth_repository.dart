@@ -19,43 +19,55 @@ class AuthController extends _$AuthController {
         email: email.trim(),
         password: password,
       );
-      
-      final uid = credential.user!.uid;
-      
-      // Fetch user role from Realtime Database
-      final snapshot = await FirebaseDatabase.instance.ref('users/$uid').get();
-      if (snapshot.exists) {
-        final data = snapshot.value as Map<dynamic, dynamic>;
-        
-        // Prevent login if user is soft-deleted
-        if (data['isActive'] == false) {
-          await auth.FirebaseAuth.instance.signOut();
-          throw Exception('This account has been deactivated.');
-        }
-        
-        state = User(
-          id: uid,
-          username: data['username']?.toString() ?? email,
-          role: _roleFromString(data['role']?.toString() ?? 'Cleaner'),
-          isActive: data['isActive'] as bool? ?? true,
-          email: data['email']?.toString(),
-          phone: data['phone']?.toString(),
-          address: data['address']?.toString(),
-          emergencyContact: data['emergencyContact']?.toString(),
-          payRate: data['payRate'] != null ? double.tryParse(data['payRate'].toString()) : null,
-        );
-      } else {
-        // Automatically sign out if database record is missing to prevent orphan sessions
-        await auth.FirebaseAuth.instance.signOut();
-        throw Exception('User data not found in database.');
-      }
+      await _loadUserFromDatabase(credential.user!.uid, email);
     } on auth.FirebaseAuthException catch (e) {
+      // On unsigned macOS/Windows apps, Firebase Auth throws 'keychain-error'
+      // AFTER a successful sign-in, when it tries to persist the token to the
+      // native Keychain (which requires a paid Developer certificate).
+      // The user IS authenticated in memory at this point — we recover by
+      // reading FirebaseAuth.instance.currentUser directly.
+      if (e.code == 'keychain-error') {
+        final currentUser = auth.FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          await _loadUserFromDatabase(currentUser.uid, email);
+          return;
+        }
+      }
       if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
         throw Exception('Invalid email or password.');
       }
       throw Exception(e.message ?? 'Authentication failed.');
     } catch (e) {
       throw Exception('Login failed: ${e.toString()}');
+    }
+  }
+
+  /// Fetches user record from Realtime Database and sets the app state.
+  Future<void> _loadUserFromDatabase(String uid, String fallbackEmail) async {
+    final snapshot = await FirebaseDatabase.instance.ref('users/$uid').get();
+    if (snapshot.exists) {
+      final data = snapshot.value as Map<dynamic, dynamic>;
+
+      // Prevent login if user is soft-deleted
+      if (data['isActive'] == false) {
+        await auth.FirebaseAuth.instance.signOut();
+        throw Exception('This account has been deactivated.');
+      }
+
+      state = User(
+        id: uid,
+        username: data['username']?.toString() ?? fallbackEmail,
+        role: _roleFromString(data['role']?.toString() ?? 'Cleaner'),
+        isActive: data['isActive'] as bool? ?? true,
+        email: data['email']?.toString(),
+        phone: data['phone']?.toString(),
+        address: data['address']?.toString(),
+        emergencyContact: data['emergencyContact']?.toString(),
+        payRate: data['payRate'] != null ? double.tryParse(data['payRate'].toString()) : null,
+      );
+    } else {
+      await auth.FirebaseAuth.instance.signOut();
+      throw Exception('User data not found in database.');
     }
   }
 
@@ -98,7 +110,7 @@ class AuthController extends _$AuthController {
     if (currentUser == null) throw Exception('Not authenticated.');
     await currentUser.updatePassword(newPassword);
   }
-  
+
   AppRole _roleFromString(String roleStr) {
     switch (roleStr) {
       case 'Super Admin':
