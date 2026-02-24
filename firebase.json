@@ -1,0 +1,47 @@
+{
+    "functions": {
+        "source": "functions"
+    },
+    "database": {
+        "rules": "database.rules.json"
+    },
+    "flutter": {
+        "platforms": {
+            "android": {
+                "default": {
+                    "projectId": "calbnb-71137",
+                    "appId": "1:941286930069:android:8b082501c4a61eb943cd9c",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            },
+            "ios": {
+                "default": {
+                    "projectId": "calbnb-71137",
+                    "appId": "1:941286930069:ios:1ef87642155f5e0343cd9c",
+                    "uploadDebugSymbols": false,
+                    "fileOutput": "ios/Runner/GoogleService-Info.plist"
+                }
+            },
+            "macos": {
+                "default": {
+                    "projectId": "calbnb-71137",
+                    "appId": "1:941286930069:ios:1ef87642155f5e0343cd9c",
+                    "uploadDebugSymbols": false,
+                    "fileOutput": "macos/Runner/GoogleService-Info.plist"
+                }
+            },
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "calbnb-71137",
+                    "configurations": {
+                        "android": "1:941286930069:android:8b082501c4a61eb943cd9c",
+                        "ios": "1:941286930069:ios:1ef87642155f5e0343cd9c",
+                        "macos": "1:941286930069:ios:1ef87642155f5e0343cd9c",
+                        "web": "1:941286930069:web:cdb74ab53e5db23f43cd9c",
+                        "windows": "1:941286930069:web:2c9ef0312091251f43cd9c"
+                    }
+                }
+            }
+        }
+    }
+}
