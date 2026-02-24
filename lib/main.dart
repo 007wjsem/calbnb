@@ -4,12 +4,14 @@ import 'core/routing/app_router.dart';
 import 'core/theme/app_colors.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'core/services/update_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await UpdateService.initialize();
   runApp(const ProviderScope(child: MyApp()));
 }
 

@@ -4,10 +4,13 @@ import '../../auth/data/auth_repository.dart';
 import '../../auth/domain/user.dart';
 import '../../calendar/presentation/calendar_dashboard.dart';
 import 'cleaner_dashboard.dart';
+import 'cleaner_earnings_view.dart';
 import 'inspector_dashboard.dart';
 import '../../../core/constants/roles.dart';
 import '../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/services/update_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -18,12 +21,78 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-class DashboardWrapper extends ConsumerWidget {
+class DashboardWrapper extends ConsumerStatefulWidget {
   final bool isAssignmentsView;
-  const DashboardWrapper({super.key, this.isAssignmentsView = false});
+  final bool isEarningsView;
+  const DashboardWrapper({super.key, this.isAssignmentsView = false, this.isEarningsView = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardWrapper> createState() => _DashboardWrapperState();
+}
+
+class _DashboardWrapperState extends ConsumerState<DashboardWrapper> {
+  
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkUpdates();
+    });
+  }
+
+  Future<void> _checkUpdates() async {
+    final updateInfo = await UpdateService.checkForUpdate();
+    if (updateInfo != null && updateInfo.updateAvailable && mounted) {
+      if (updateInfo.isForced) {
+        // Show un-dismissible dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => WillPopScope(
+            onWillPop: () async => false, // Prevent back button
+            child: AlertDialog(
+              title: const Text('Critical Update Required', style: TextStyle(color: Colors.red)),
+              content: Text('Version ${updateInfo.latestVersion} is now available. You must update the application to continue using it.'),
+              actions: [
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    final url = Uri.parse(updateInfo.downloadUrl);
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url);
+                    }
+                  },
+                  icon: const Icon(Icons.download),
+                  label: const Text('Download Update'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                )
+              ],
+            ),
+          ),
+        );
+      } else {
+        // Show dismissible Snackbar for optional updates
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('A new update (${updateInfo.latestVersion}) is available!'),
+            duration: const Duration(seconds: 10),
+            action: SnackBarAction(
+              label: 'Download',
+              textColor: Colors.amber,
+              onPressed: () async {
+                final url = Uri.parse(updateInfo.downloadUrl);
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url);
+                }
+              },
+            ),
+          )
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(authControllerProvider);
 
     if (user == null) {
@@ -62,11 +131,15 @@ class DashboardWrapper extends ConsumerWidget {
   }
 
   Widget _buildMainContent(User user) {
-    if (isAssignmentsView) {
+    if (widget.isAssignmentsView) {
       if (user.role == AppRole.cleaner) {
         return const CleanerDashboard();
       } else if (user.role == AppRole.inspector) {
         return const InspectorDashboard();
+      }
+    } else if (widget.isEarningsView) {
+      if (user.role == AppRole.cleaner) {
+        return const CleanerEarningsView();
       }
     }
     return const CalendarDashboard();
@@ -185,6 +258,17 @@ class DashboardWrapper extends ConsumerWidget {
               context.go('/profile');
             },
           ),
+          if (user.role == AppRole.cleaner) ...[
+            _SidebarItem(
+              icon: Icons.monetization_on_outlined,
+              title: 'My Earnings',
+              isSelected: currentRoute == '/earnings',
+              onTap: () {
+                if (!isDesktop) Navigator.pop(context);
+                context.go('/earnings');
+              },
+            ),
+          ],
           if (user.role.displayName == 'Super Admin' || user.role.displayName == 'Administrator') ...[
             const SizedBox(height: 16),
             const Padding(

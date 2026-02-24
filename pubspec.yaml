@@ -43,6 +43,9 @@ dependencies:
   intl: ^0.20.2
   firebase_auth: ^6.1.4
   image_picker: ^1.2.0
+  firebase_remote_config: ^6.1.4
+  package_info_plus: ^9.0.0
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

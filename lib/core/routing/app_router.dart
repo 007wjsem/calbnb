@@ -11,6 +11,7 @@ import '../../features/payroll/presentation/payroll_screen.dart';
 import '../../features/dashboard/presentation/cleanings_screen.dart';
 import '../../features/dashboard/presentation/inspections_screen.dart';
 import '../../features/dashboard/presentation/assignments_screen.dart';
+import '../../features/dashboard/presentation/earnings_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -57,6 +58,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/assignments',
         builder: (context, state) => const AssignmentsScreen(),
+      ),
+      GoRoute(
+        path: '/earnings',
+        builder: (context, state) => const EarningsScreen(),
       ),
       GoRoute(
         path: '/profile',
