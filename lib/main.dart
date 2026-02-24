@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'core/services/update_service.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_colors.dart';
 
@@ -11,7 +10,6 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  await UpdateService.initialize();
   runApp(const ProviderScope(child: MyApp()));
 }
 

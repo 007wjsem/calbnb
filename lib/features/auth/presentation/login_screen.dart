@@ -4,8 +4,6 @@ import '../data/auth_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/roles.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/services/update_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -20,57 +18,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkForUpdate());
-  }
-
-  Future<void> _checkForUpdate() async {
-    final updateInfo = await UpdateService.checkForUpdate();
-    if (updateInfo != null && updateInfo.updateAvailable && mounted) {
-      if (updateInfo.isForced) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => PopScope(
-            canPop: false,
-            child: AlertDialog(
-              title: const Text('Update Required', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-              content: Text(
-                'Version ${updateInfo.latestVersion} is now available.\nYou must update the app to continue.',
-              ),
-              actions: [
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    final url = Uri.parse(updateInfo.downloadUrl);
-                    if (await canLaunchUrl(url)) await launchUrl(url);
-                  },
-                  icon: const Icon(Icons.download),
-                  label: const Text('Download Update'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                ),
-              ],
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Version ${updateInfo.latestVersion} is available!'),
-          duration: const Duration(seconds: 10),
-          action: SnackBarAction(
-            label: 'Download',
-            textColor: Colors.amber,
-            onPressed: () async {
-              final url = Uri.parse(updateInfo.downloadUrl);
-              if (await canLaunchUrl(url)) await launchUrl(url);
-            },
-          ),
-        ));
-      }
-    }
-  }
 
   @override
   void dispose() {
