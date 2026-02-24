@@ -1,0 +1,165 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "All In 1 Home",
+  "@appTitle": { "description": "Application title" },
+
+  "signIn": "Sign In",
+  "@signIn": { "description": "Sign in button" },
+
+  "signOut": "Sign Out",
+  "@signOut": { "description": "Sign out action" },
+
+  "emailAddress": "Email Address",
+  "@emailAddress": { "description": "Email field label" },
+
+  "password": "Password",
+  "@password": { "description": "Password field label" },
+
+  "signInToAccount": "Sign in to your account",
+  "@signInToAccount": { "description": "Login screen title" },
+
+  "enterCredentials": "Enter your credentials to continue",
+  "@enterCredentials": { "description": "Login screen subtitle" },
+
+  "dashboard": "Dashboard",
+  "@dashboard": { "description": "Dashboard nav label" },
+
+  "calendar": "Calendar",
+  "@calendar": { "description": "Calendar nav label" },
+
+  "assignments": "Assignments",
+  "@assignments": { "description": "Assignments nav label" },
+
+  "myEarnings": "My Earnings",
+  "@myEarnings": { "description": "Earnings nav label" },
+
+  "profile": "Profile",
+  "@profile": { "description": "Profile nav label" },
+
+  "settings": "Settings",
+  "@settings": { "description": "Settings nav label" },
+
+  "jobStatus": "Job Status",
+  "@jobStatus": { "description": "Job status label" },
+
+  "startJob": "Start Job",
+  "@startJob": { "description": "Button to start a cleaning job" },
+
+  "finishJob": "Finish Job",
+  "@finishJob": { "description": "Button to finish a cleaning job" },
+
+  "pending": "Pending",
+  "@pending": { "description": "Pending status" },
+
+  "inProgress": "In Progress",
+  "@inProgress": { "description": "In progress status" },
+
+  "completed": "Completed",
+  "@completed": { "description": "Completed status" },
+
+  "approved": "Approved",
+  "@approved": { "description": "Approved status" },
+
+  "rejected": "Rejected",
+  "@rejected": { "description": "Rejected status" },
+
+  "property": "Property",
+  "@property": { "description": "Property label" },
+
+  "cleaner": "Cleaner",
+  "@cleaner": { "description": "Cleaner role label" },
+
+  "inspector": "Inspector",
+  "@inspector": { "description": "Inspector role label" },
+
+  "manager": "Manager",
+  "@manager": { "description": "Manager role label" },
+
+  "administrator": "Administrator",
+  "@administrator": { "description": "Administrator role label" },
+
+  "checkIn": "Check In",
+  "@checkIn": { "description": "Check-in label" },
+
+  "checkOut": "Check Out",
+  "@checkOut": { "description": "Check-out label" },
+
+  "assignCleaner": "Assign Cleaner",
+  "@assignCleaner": { "description": "Assign cleaner action" },
+
+  "assignInspector": "Assign Inspector",
+  "@assignInspector": { "description": "Assign inspector action" },
+
+  "notes": "Notes",
+  "@notes": { "description": "Notes field label" },
+
+  "save": "Save",
+  "@save": { "description": "Save button" },
+
+  "cancel": "Cancel",
+  "@cancel": { "description": "Cancel button" },
+
+  "delete": "Delete",
+  "@delete": { "description": "Delete button" },
+
+  "confirm": "Confirm",
+  "@confirm": { "description": "Confirm button" },
+
+  "error": "Error",
+  "@error": { "description": "Error label" },
+
+  "loading": "Loading...",
+  "@loading": { "description": "Loading state" },
+
+  "noAssignments": "No assignments for this day",
+  "@noAssignments": { "description": "Empty state for assignments" },
+
+  "totalEarnings": "Total Earnings",
+  "@totalEarnings": { "description": "Total earnings label" },
+
+  "thisWeek": "This Week",
+  "@thisWeek": { "description": "This week label" },
+
+  "language": "Language",
+  "@language": { "description": "Language settings label" },
+
+  "english": "English",
+  "@english": { "description": "English language option" },
+
+  "spanish": "Spanish",
+  "@spanish": { "description": "Spanish language option" },
+
+  "invalidCredentials": "Invalid email or password.",
+  "@invalidCredentials": { "description": "Login error message" },
+
+  "uploadPhoto": "Upload Photo",
+  "@uploadPhoto": { "description": "Upload photo button" },
+
+  "photoRequired": "A photo is required to complete this job",
+  "@photoRequired": { "description": "Photo required validation message" },
+
+  "approve": "Approve",
+  "@approve": { "description": "Approve action for inspector" },
+
+  "reject": "Reject",
+  "@reject": { "description": "Reject action for inspector" },
+
+  "payroll": "Payroll",
+  "@payroll": { "description": "Payroll nav label" },
+
+  "payRate": "Pay Rate",
+  "@payRate": { "description": "Pay rate label" },
+
+  "companies": "Companies",
+  "@companies": { "description": "Companies nav label for super admin" },
+
+  "subscriptionTier": "Subscription Tier",
+  "@subscriptionTier": { "description": "Subscription tier label" },
+
+  "activeStatus": "Active",
+  "@activeStatus": { "description": "Active subscription status" },
+
+  "trialStatus": "Free Trial",
+  "@trialStatus": { "description": "Trialing subscription status" }
+}

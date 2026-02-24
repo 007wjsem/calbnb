@@ -11,6 +11,10 @@ class Company {
   final int propertyCount;
   final DateTime createdAt;
 
+  // Tier 4 Enterprise-specific fields
+  final DateTime? supportExpiresAt;   // When dedicated support period ends
+  final int majorReleasesUsed;        // Releases claimed without active support (max 2)
+
   const Company({
     required this.id,
     required this.name,
@@ -21,11 +25,24 @@ class Company {
     required this.createdAt,
     this.stripeCustomerId,
     this.stripeSubscriptionId,
+    this.supportExpiresAt,
+    this.majorReleasesUsed = 0,
   });
 
-  int get includedProperties => tier.includedProperties;
-  double get overageRate => tier.overageRate;
+  int? get includedProperties => tier.includedProperties;
+  double? get overageRate => tier.overageRate;
   bool get isActive => status == SubscriptionStatus.active || status == SubscriptionStatus.trialing;
+
+  /// Enterprise: true if support contract is currently active
+  bool get hasSupportActive =>
+      tier == SubscriptionTier.enterprise &&
+      supportExpiresAt != null &&
+      supportExpiresAt!.isAfter(DateTime.now());
+
+  /// Enterprise: true if company can access next major release for free
+  bool get canAccessNextMajorRelease =>
+      tier == SubscriptionTier.enterprise &&
+      (hasSupportActive || majorReleasesUsed < 2);
 
   Company copyWith({
     String? name,
@@ -34,6 +51,8 @@ class Company {
     String? stripeCustomerId,
     String? stripeSubscriptionId,
     int? propertyCount,
+    DateTime? supportExpiresAt,
+    int? majorReleasesUsed,
   }) {
     return Company(
       id: id,
@@ -45,6 +64,8 @@ class Company {
       stripeSubscriptionId: stripeSubscriptionId ?? this.stripeSubscriptionId,
       propertyCount: propertyCount ?? this.propertyCount,
       createdAt: createdAt,
+      supportExpiresAt: supportExpiresAt ?? this.supportExpiresAt,
+      majorReleasesUsed: majorReleasesUsed ?? this.majorReleasesUsed,
     );
   }
 
@@ -61,6 +82,10 @@ class Company {
       createdAt: map['createdAt'] != null
           ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'] as int)
           : DateTime.now(),
+      supportExpiresAt: map['supportExpiresAt'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(map['supportExpiresAt'] as int)
+          : null,
+      majorReleasesUsed: (map['majorReleasesUsed'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -74,6 +99,8 @@ class Company {
       'stripeSubscriptionId': stripeSubscriptionId,
       'propertyCount': propertyCount,
       'createdAt': createdAt.millisecondsSinceEpoch,
+      'supportExpiresAt': supportExpiresAt?.millisecondsSinceEpoch,
+      'majorReleasesUsed': majorReleasesUsed,
     };
   }
 }

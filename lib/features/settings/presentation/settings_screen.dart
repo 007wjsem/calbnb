@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../data/settings_repository.dart';
 import '../../admin/data/property_repository.dart';
 import '../../admin/domain/property.dart';
+import '../../core/providers/locale_provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 final settingsRepositoryProvider = Provider((ref) => SettingsRepository());
 final propertyRepositoryProvider = Provider((ref) => PropertyRepository());
@@ -125,6 +127,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Language Toggle
+            Card(
+              margin: const EdgeInsets.only(bottom: 24),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppLocalizations.of(context)!.language,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: SegmentedButton<String>(
+                        segments: [
+                          ButtonSegment(
+                            value: 'en',
+                            label: Text(AppLocalizations.of(context)!.english),
+                            icon: const Text('🇺🇸'),
+                          ),
+                          ButtonSegment(
+                            value: 'es',
+                            label: Text(AppLocalizations.of(context)!.spanish),
+                            icon: const Text('🇪🇸'),
+                          ),
+                        ],
+                        selected: {ref.watch(localeProvider).languageCode},
+                        onSelectionChanged: (Set<String> newSelection) {
+                          final newLocale = Locale(newSelection.first);
+                          ref.read(localeProvider.notifier).setLocale(newLocale);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Property Display Order
             const Text(
               'Property Display Order',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

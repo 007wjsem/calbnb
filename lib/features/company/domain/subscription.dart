@@ -1,34 +1,38 @@
 enum SubscriptionTier {
   starter,
   growth,
-  agency;
+  agency,
+  enterprise;
 
   String get value => name;
 
-  /// Flat monthly base price in USD
+  /// Flat monthly base price in USD. Enterprise is a one-time custom quote.
   double get basePrice {
     switch (this) {
       case SubscriptionTier.starter: return 29.0;
       case SubscriptionTier.growth: return 99.0;
       case SubscriptionTier.agency: return 249.0;
+      case SubscriptionTier.enterprise: return 0.0; // One-time custom quote
     }
   }
 
-  /// Number of properties included in the base price
-  int get includedProperties {
+  /// Number of properties included. Enterprise is unlimited.
+  int? get includedProperties {
     switch (this) {
       case SubscriptionTier.starter: return 5;
       case SubscriptionTier.growth: return 20;
       case SubscriptionTier.agency: return 50;
+      case SubscriptionTier.enterprise: return null; // Unlimited
     }
   }
 
-  /// USD per additional property beyond the included count
-  double get overageRate {
+  /// USD per additional property beyond the included count. null = no overage.
+  double? get overageRate {
     switch (this) {
       case SubscriptionTier.starter: return 5.0;
       case SubscriptionTier.growth: return 4.0;
       case SubscriptionTier.agency: return 3.0;
+      case SubscriptionTier.enterprise: return null;
     }
   }
 
@@ -37,6 +41,7 @@ enum SubscriptionTier {
       case SubscriptionTier.starter: return 'Starter';
       case SubscriptionTier.growth: return 'Growth';
       case SubscriptionTier.agency: return 'Agency';
+      case SubscriptionTier.enterprise: return 'Enterprise';
     }
   }
 
@@ -44,6 +49,7 @@ enum SubscriptionTier {
     switch (value) {
       case 'growth': return SubscriptionTier.growth;
       case 'agency': return SubscriptionTier.agency;
+      case 'enterprise': return SubscriptionTier.enterprise;
       default: return SubscriptionTier.starter;
     }
   }
