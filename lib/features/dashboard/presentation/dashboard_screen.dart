@@ -64,13 +64,13 @@ class DashboardWrapper extends ConsumerWidget {
   }
 
   Widget _buildMainContent(User user) {
-    if (widget.isAssignmentsView) {
+    if (isAssignmentsView) {
       if (user.role == AppRole.cleaner) {
         return const CleanerDashboard();
       } else if (user.role == AppRole.inspector) {
         return const InspectorDashboard();
       }
-    } else if (widget.isEarningsView) {
+    } else if (isEarningsView) {
       if (user.role == AppRole.cleaner) {
         return const CleanerEarningsView();
       }

@@ -40,7 +40,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
             runSpacing: 8,
             children: [
               Text(
-                'Today\'s Activities',
+                'Today\'s Activities (v6)',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
               Row(
@@ -81,29 +81,64 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                 }
                 return assignmentsAsync.when(
                   data: (assignments) {
-                    return ListView.builder(
-                      itemCount: reservations.length,
-                      itemBuilder: (context, index) {
-                        final res = reservations[index];
-                        final isCheckIn = res.type == ReservationEventType.checkIn;
-                        final assignment = assignments.where((a) => a.reservationId == res.id).firstOrNull;
-                        
-                        // Filtering logic for Cleaner/Inspector on Calendar View
-                        if (currentUser?.role == AppRole.cleaner) {
-                          if (isCheckIn) return const SizedBox.shrink(); 
-                          if (assignment == null || assignment.cleanerId != currentUser?.id) return const SizedBox.shrink();
-                        } else if (currentUser?.role == AppRole.inspector) {
-                           if (isCheckIn) return const SizedBox.shrink();
-                           if (assignment == null || assignment.inspectorId != currentUser?.id) return const SizedBox.shrink();
-                        }
+                    // Pre-filter the list based on user role to avoid SizedBox.shrink() gaps
+                    var displayList = reservations.where((res) {
+                      final isCheckIn = res.type == ReservationEventType.checkIn;
+                      final assignment = assignments.where((a) => a.reservationId == res.id).firstOrNull;
+                      
+                      if (currentUser?.role == AppRole.cleaner) {
+                        if (isCheckIn) return false; 
+                        if (assignment == null || assignment.cleanerId != currentUser?.id) return false;
+                      } else if (currentUser?.role == AppRole.inspector) {
+                         if (isCheckIn) return false;
+                         if (assignment == null || assignment.inspectorId != currentUser?.id) return false;
+                      }
+                      return true;
+                    }).toList();
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: InkWell(
+                    // Group all reservations natively by property name to completely bypass index-parsing bugs
+                    Map<String, List<Reservation>> propertyGroups = {};
+                    for (var res in displayList) {
+                      propertyGroups.putIfAbsent(res.propertyName, () => []).add(res);
+                    }
+
+                    List<List<Reservation>> finalGroups = [];
+                    for (var group in propertyGroups.values) {
+                      // Sort inside each property group: Check-out must ALWAYS be element 0, Check-in element 1
+                      group.sort((a, b) {
+                        if (a.type == ReservationEventType.checkOut && b.type == ReservationEventType.checkIn) return -1;
+                        if (a.type == ReservationEventType.checkIn && b.type == ReservationEventType.checkOut) return 1;
+                        return 0;
+                      });
+                      finalGroups.add(group);
+                    }
+
+                    // Sort the grouped properties
+                    finalGroups.sort((groupA, groupB) {
+                      bool hasBothA = groupA.any((r) => r.type == ReservationEventType.checkOut) && groupA.any((r) => r.type == ReservationEventType.checkIn);
+                      bool hasBothB = groupB.any((r) => r.type == ReservationEventType.checkOut) && groupB.any((r) => r.type == ReservationEventType.checkIn);
+                      
+                      int rankA = hasBothA ? 0 : (groupA.first.type == ReservationEventType.checkOut ? 1 : 2);
+                      int rankB = hasBothB ? 0 : (groupB.first.type == ReservationEventType.checkOut ? 1 : 2);
+                      
+                      if (rankA != rankB) return rankA.compareTo(rankB);
+                      
+                      return groupA.first.propertyName.compareTo(groupB.first.propertyName);
+                    });
+
+                    return ListView.builder(
+                      itemCount: finalGroups.length,
+                      itemBuilder: (context, index) {
+                        final group = finalGroups[index];
+                        
+                        // Helper function to build a single reservation row to be placed inside the Card
+                        Widget buildReservationRow(Reservation res) {
+                          final isCheckIn = res.type == ReservationEventType.checkIn;
+                          final assignment = assignments.where((a) => a.reservationId == res.id).firstOrNull;
+                          return InkWell(
                             onTap: (!isCheckIn && canAssign) ? () => _showCleaningAssignmentDialog(context, ref, res, dateQuery, assignment) : null,
-                            borderRadius: BorderRadius.circular(12),
                             child: Padding(
-                              padding: const EdgeInsets.all(4.0),
+                              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
                               child: ListTile(
                                 leading: CircleAvatar(
                                   backgroundColor: isCheckIn ? Colors.green.shade100 : Colors.red.shade100,
@@ -156,6 +191,21 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                                 ),
                               ),
                             ),
+                          );
+                        }
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              buildReservationRow(group[0]),
+                              if (group.length > 1) ...[
+                                const Divider(height: 1, thickness: 1, color: Colors.black12),
+                                buildReservationRow(group[1]),
+                              ],
+                            ],
                           ),
                         );
                       },
