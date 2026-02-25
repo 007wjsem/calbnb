@@ -76,6 +76,28 @@ class CompanyRepository {
   Future<void> updateName(String companyId, String name) async {
     await _ref(companyId).update({'name': name});
   }
+
+  /// Fetch ALL companies (Super Admin only).
+  Future<List<Company>> fetchAllCompanies() async {
+    final snapshot = await _db.ref('companies').get();
+    if (!snapshot.exists) return [];
+    
+    final map = snapshot.value as Map<dynamic, dynamic>;
+    return map.entries.map((e) {
+      return Company.fromMap(e.key.toString(), e.value as Map<dynamic, dynamic>);
+    }).toList();
+  }
+
+  /// Watch ALL companies in real time (Super Admin only).
+  Stream<List<Company>> watchAllCompanies() {
+    return _db.ref('companies').onValue.map((event) {
+      if (!event.snapshot.exists) return [];
+      final map = event.snapshot.value as Map<dynamic, dynamic>;
+      return map.entries.map((e) {
+        return Company.fromMap(e.key.toString(), e.value as Map<dynamic, dynamic>);
+      }).toList();
+    });
+  }
 }
 
 // ─── Providers ────────────────────────────────────────────────────────────────
@@ -86,4 +108,8 @@ final companyRepositoryProvider = Provider<CompanyRepository>((ref) {
 
 final companyProvider = StreamProvider.family<Company?, String>((ref, companyId) {
   return ref.watch(companyRepositoryProvider).watchCompany(companyId);
+});
+
+final globalCompaniesProvider = StreamProvider<List<Company>>((ref) {
+  return ref.watch(companyRepositoryProvider).watchAllCompanies();
 });

@@ -13,6 +13,9 @@ import '../../features/dashboard/presentation/inspections_screen.dart';
 import '../../features/dashboard/presentation/assignments_screen.dart';
 import '../../features/dashboard/presentation/earnings_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/admin/presentation/super_admin_company_list_screen.dart';
+import '../../features/admin/presentation/create_company_screen.dart';
+import '../../features/admin/presentation/super_admin_company_detail_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
@@ -90,6 +93,21 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/inspections',
         builder: (context, state) => const InspectionsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/companies',
+        builder: (context, state) => const SuperAdminCompanyListScreen(),
+      ),
+      GoRoute(
+        path: '/admin/companies/new',
+        builder: (context, state) => const CreateCompanyScreen(),
+      ),
+      GoRoute(
+        path: '/admin/companies/:id',
+        builder: (context, state) {
+          final companyId = state.pathParameters['id']!;
+          return SuperAdminCompanyDetailScreen(companyId: companyId);
+        },
       ),
     ],
   );
