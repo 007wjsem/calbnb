@@ -395,7 +395,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                 ),
               ),
               Step(
-                title: const Text('Location', style: TextStyle(fontSize: 13)),
+                title: const Text('Location & Details', style: TextStyle(fontSize: 13)),
                 isActive: currentStep >= 1,
                 state: currentStep > 1 ? StepState.complete : StepState.indexed,
                 content: Column(
@@ -440,15 +440,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              Step(
-                title: const Text('Details', style: TextStyle(fontSize: 13)),
-                isActive: currentStep >= 2,
-                state: currentStep > 2 ? StepState.complete : StepState.indexed,
-                content: Column(
-                  children: [
+                    const SizedBox(height: 16),
                     Row(
                       children: [
                         Expanded(
@@ -467,18 +459,13 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: propertyMgmtController,
-                      decoration: const InputDecoration(labelText: 'Property Management Company', prefixIcon: Icon(Icons.business_outlined)),
-                    ),
                   ],
                 ),
               ),
               Step(
-                title: const Text('Owner', style: TextStyle(fontSize: 13)),
-                isActive: currentStep >= 3,
-                state: currentStep > 3 ? StepState.complete : StepState.indexed,
+                title: const Text('Owner & Mgmt', style: TextStyle(fontSize: 13)),
+                isActive: currentStep >= 2,
+                state: currentStep > 2 ? StepState.complete : StepState.indexed,
                 content: Column(
                   children: [
                     Row(
@@ -500,18 +487,31 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                       ],
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: ownerEmailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: ownerEmailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: propertyMgmtController,
+                            decoration: const InputDecoration(labelText: 'Property Management Company', prefixIcon: Icon(Icons.business_outlined)),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
               Step(
-                title: const Text('Access', style: TextStyle(fontSize: 13)),
-                isActive: currentStep >= 4,
-                state: currentStep > 4 ? StepState.complete : StepState.indexed,
+                title: const Text('Access & Cleaning', style: TextStyle(fontSize: 13)),
+                isActive: currentStep >= 3,
+                state: currentStep > 3 ? StepState.complete : StepState.indexed,
                 content: Column(
                   children: [
                     Row(
@@ -714,6 +714,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                         },
                         controlsBuilder: (context, details) {
                           final isLastStep = currentStep == steps.length - 1;
+                          final isFirstStep = currentStep == 0;
                           return Padding(
                             padding: const EdgeInsets.only(top: 32),
                             child: Row(
@@ -728,8 +729,69 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                                 const SizedBox(width: 12),
                                 TextButton(
                                   onPressed: details.onStepCancel,
-                                  child: Text(currentStep == 0 ? 'Cancel' : 'Back'),
+                                  child: Text(isFirstStep ? 'Cancel' : 'Back'),
                                 ),
+                                if (isFirstStep) ...[
+                                  const Spacer(),
+                                  OutlinedButton.icon(
+                                    onPressed: () async {
+                                      // Express Save Validation
+                                      if (isSuperAdmin && selectedCompanyId.isEmpty) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Please select a company for this property.')),
+                                        );
+                                        return;
+                                      }
+                                      if (nameController.text.trim().isEmpty) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Property Name is required for Express Save.')),
+                                        );
+                                        return;
+                                      }
+                                      
+                                      final newProp = Property(
+                                        id: isEditing ? existingProperty!.id : '',
+                                        companyId: selectedCompanyId,
+                                        name: nameController.text.trim(),
+                                        address: addressController.text.trim(),
+                                        zipCode: zipCodeController.text.trim(),
+                                        city: cityController.text.trim(),
+                                        state: stateController.text.trim(),
+                                        country: countryController.text.trim(),
+                                        propertyType: selectedType,
+                                        cleaningFee: double.tryParse(cleaningFeeController.text) ?? 0.0,
+                                        size: sizeController.text.trim(),
+                                        ownerName: ownerNameController.text.trim(),
+                                        ownerPhone: ownerPhoneController.text.trim(),
+                                        ownerEmail: ownerEmailController.text.trim(),
+                                        propertyManagement: propertyMgmtController.text.trim(),
+                                        lockBoxPin: lockBoxPinController.text.trim(),
+                                        housePin: housePinController.text.trim(),
+                                        garagePin: garagePinController.text.trim(),
+                                        order: isEditing ? existingProperty!.order : -1,
+                                        cleaningInstructions: cleaningInstructionsController.text.trim(),
+                                        instructionPhotos: instructionPhotos,
+                                      );
+
+                                      if (isEditing) {
+                                        await repo.update(newProp);
+                                      } else {
+                                        await repo.add(newProp);
+                                      }
+                                      if (context.mounted) {
+                                        Navigator.pop(context);
+                                        await _loadProperties();
+                                      }
+                                    },
+                                    icon: const Icon(Icons.flash_on, size: 18),
+                                    label: const Text('Express Save'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppColors.primary,
+                                      side: const BorderSide(color: AppColors.primary),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           );
