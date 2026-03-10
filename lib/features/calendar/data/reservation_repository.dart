@@ -14,11 +14,9 @@ class DailyReservations extends _$DailyReservations {
   Stream<List<Reservation>> build(DateTime date) async* {
     final activeCompanyId = ref.watch(authControllerProvider)?.activeCompanyId;
     
-    final DatabaseReference dbRef = activeCompanyId == null 
-        ? FirebaseDatabase.instance.ref()
-        : FirebaseDatabase.instance.ref('companies/$activeCompanyId');
-
-    final ref_calendar = dbRef.child('master_calendar');
+    // The master_calendar is currently a global/root node populated externally (e.g. via Make.com).
+    // It is NOT stored inside the individual company buckets.
+    final ref_calendar = FirebaseDatabase.instance.ref('master_calendar');
     final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
 
     await for (final event in ref_calendar.onValue) {
