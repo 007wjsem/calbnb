@@ -54,6 +54,18 @@ class AuthController extends _$AuthController {
         throw Exception('This account has been deactivated.');
       }
 
+      final companyIdsRaw = data['companyIds'];
+      List<String> companyIds = [];
+      if (companyIdsRaw is List) {
+        companyIds = companyIdsRaw.map((e) => e.toString()).toList();
+      } else if (companyIdsRaw is Map) {
+        // Handle Map if stored as keys
+        companyIds = companyIdsRaw.keys.map((e) => e.toString()).toList();
+      } else if (data['companyId'] != null) {
+        // Fallback for legacy single companyId field
+        companyIds = [data['companyId'].toString()];
+      }
+
       state = User(
         id: uid,
         username: data['username']?.toString() ?? fallbackEmail,
@@ -64,6 +76,8 @@ class AuthController extends _$AuthController {
         address: data['address']?.toString(),
         emergencyContact: data['emergencyContact']?.toString(),
         payRate: data['payRate'] != null ? double.tryParse(data['payRate'].toString()) : null,
+        companyIds: companyIds,
+        activeCompanyId: data['activeCompanyId']?.toString() ?? (companyIds.isNotEmpty ? companyIds.first : null),
       );
     } else {
       await auth.FirebaseAuth.instance.signOut();
@@ -109,6 +123,21 @@ class AuthController extends _$AuthController {
     final currentUser = auth.FirebaseAuth.instance.currentUser;
     if (currentUser == null) throw Exception('Not authenticated.');
     await currentUser.updatePassword(newPassword);
+  }
+
+  /// Switch the active company for the user.
+  Future<void> switchCompany(String companyId) async {
+    final user = state;
+    if (user == null) return;
+    if (!user.companyIds.contains(companyId)) {
+      throw Exception('You do not have access to this company.');
+    }
+
+    await FirebaseDatabase.instance.ref('users/${user.id}').update({
+      'activeCompanyId': companyId,
+    });
+
+    state = user.copyWith(activeCompanyId: companyId);
   }
 
   AppRole _roleFromString(String roleStr) {

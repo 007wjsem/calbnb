@@ -9,6 +9,7 @@ import 'inspector_dashboard.dart';
 import '../../../core/constants/roles.dart';
 import '../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
+import '../../company/presentation/company_switcher.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -151,6 +152,7 @@ class DashboardWrapper extends ConsumerWidget {
               ),
             ),
           ),
+          const CompanySwitcher(),
           const SizedBox(height: 8),
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),

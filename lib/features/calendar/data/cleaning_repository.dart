@@ -1,9 +1,9 @@
-import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
-import '../domain/cleaning_assignment.dart';
+import '../../auth/data/auth_repository.dart';
 
-final cleaningRepositoryProvider = Provider((ref) => CleaningAssignmentRepository());
+final cleaningRepositoryProvider = Provider((ref) {
+  final activeCompanyId = ref.watch(authControllerProvider)?.activeCompanyId;
+  return CleaningAssignmentRepository(activeCompanyId: activeCompanyId);
+});
 
 // A StreamProvider to listen to assignments for a specific date
 final defaultDateFormatter = DateFormat('yyyy-MM-dd');
@@ -17,6 +17,10 @@ final dailyCleaningAssignmentsProvider = StreamProvider.family<List<CleaningAssi
   final stream = repo._db.child('cleaning_assignments/$dateStr').onValue;
   
   await for (final event in stream) {
+    if (!event.snapshot.exists) {
+      yield [];
+      continue;
+    }
     final Map<dynamic, dynamic>? data = event.snapshot.value as Map<dynamic, dynamic>?;
     if (data == null) {
       yield [];
@@ -65,7 +69,13 @@ final allCleaningAssignmentsProvider = StreamProvider<List<CleaningAssignment>>(
 });
 
 class CleaningAssignmentRepository {
-  final DatabaseReference _db = FirebaseDatabase.instance.ref();
+  final String? activeCompanyId;
+  CleaningAssignmentRepository({this.activeCompanyId});
+
+  DatabaseReference get _db {
+    if (activeCompanyId == null) return FirebaseDatabase.instance.ref();
+    return FirebaseDatabase.instance.ref('companies/$activeCompanyId');
+  }
   
   Future<void> saveAssignment(CleaningAssignment assignment) async {
     // We store assignments grouped by date, and then keyed by the Reservation ID

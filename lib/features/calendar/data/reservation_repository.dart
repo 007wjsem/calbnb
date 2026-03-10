@@ -4,16 +4,24 @@ import 'package:intl/intl.dart';
 import '../domain/reservation.dart';
 import '../../admin/data/property_repository.dart';
 
+import '../../auth/data/auth_repository.dart';
+
 part 'reservation_repository.g.dart';
 
 @riverpod
 class DailyReservations extends _$DailyReservations {
   @override
   Stream<List<Reservation>> build(DateTime date) async* {
-    final ref = FirebaseDatabase.instance.ref('master_calendar');
-    final propRepo = PropertyRepository();
+    final activeCompanyId = ref.watch(authControllerProvider)?.activeCompanyId;
+    
+    final DatabaseReference dbRef = activeCompanyId == null 
+        ? FirebaseDatabase.instance.ref()
+        : FirebaseDatabase.instance.ref('companies/$activeCompanyId');
 
-    await for (final event in ref.onValue) {
+    final ref_calendar = dbRef.child('master_calendar');
+    final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
+
+    await for (final event in ref_calendar.onValue) {
       try {
         final Object? rawData = event.snapshot.value;
         if (rawData == null) {

@@ -1,8 +1,20 @@
-import 'package:firebase_database/firebase_database.dart';
 import '../../admin/domain/property.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/data/auth_repository.dart';
+
+final propertyRepositoryProvider = Provider((ref) {
+  final activeCompanyId = ref.watch(authControllerProvider)?.activeCompanyId;
+  return PropertyRepository(activeCompanyId: activeCompanyId);
+});
 
 class PropertyRepository {
-  final DatabaseReference _ref = FirebaseDatabase.instance.ref('properties');
+  final String? activeCompanyId;
+  PropertyRepository({this.activeCompanyId});
+
+  DatabaseReference get _ref {
+    if (activeCompanyId == null) return FirebaseDatabase.instance.ref('properties');
+    return FirebaseDatabase.instance.ref('companies/$activeCompanyId/properties');
+  }
 
   Future<List<Property>> fetchAll() async {
     final snapshot = await _ref.get();

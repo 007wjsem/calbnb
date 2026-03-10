@@ -9,7 +9,7 @@ import '../../admin/domain/property.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/theme/app_colors.dart';
 
-final propertyRepositoryProvider = Provider((ref) => PropertyRepository());
+import '../data/property_repository.dart';
 
 class PropertyManagementScreen extends ConsumerStatefulWidget {
   const PropertyManagementScreen({super.key});
