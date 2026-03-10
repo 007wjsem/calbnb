@@ -18,36 +18,66 @@ class PropertyRepository {
   }
 
   Future<List<Property>> fetchAll() async {
-    final snapshot = await _ref.get();
-    final Map<dynamic, dynamic>? data = snapshot.value as Map<dynamic, dynamic>?;
-    if (data == null) return [];
-    final properties = data.entries.map((e) {
-      final value = e.value as Map<dynamic, dynamic>;
-      return Property(
-        id: e.key.toString(),
-        companyId: value['companyId']?.toString() ?? activeCompanyId ?? '',
-        name: value['name']?.toString() ?? 'Unknown',
-        address: value['address']?.toString() ?? 'Unknown',
-        zipCode: value['zipCode']?.toString() ?? '',
-        city: value['city']?.toString() ?? '',
-        state: value['state']?.toString() ?? '',
-        country: value['country']?.toString() ?? '',
-        cleaningFee: (value['cleaningFee'] as num?)?.toDouble() ?? 0.0,
-        size: value['size']?.toString() ?? '',
-        propertyType: value['propertyType']?.toString() ?? '',
-        ownerName: value['ownerName']?.toString() ?? '',
-        ownerPhone: value['ownerPhone']?.toString() ?? '',
-        ownerEmail: value['ownerEmail']?.toString() ?? '',
-        propertyManagement: value['propertyManagement']?.toString() ?? '',
-        lockBoxPin: value['lockBoxPin']?.toString() ?? '',
-        housePin: value['housePin']?.toString() ?? '',
-        garagePin: value['garagePin']?.toString() ?? '',
-        order: (value['order'] as num?)?.toInt() ?? 0,
-        cleaningInstructions: value['cleaningInstructions']?.toString() ?? '',
-        instructionPhotos: (value['instructionPhotos'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      );
-    }).toList();
-    
+    List<Property> properties = [];
+
+    // Helper function to parse property maps
+    void parseProperties(Map<dynamic, dynamic> data, String? fallbackCompanyId) {
+      for (final e in data.entries) {
+        final value = e.value as Map<dynamic, dynamic>;
+        properties.add(Property(
+          id: e.key.toString(),
+          companyId: value['companyId']?.toString() ?? fallbackCompanyId ?? activeCompanyId ?? '',
+          name: value['name']?.toString() ?? 'Unknown',
+          address: value['address']?.toString() ?? 'Unknown',
+          zipCode: value['zipCode']?.toString() ?? '',
+          city: value['city']?.toString() ?? '',
+          state: value['state']?.toString() ?? '',
+          country: value['country']?.toString() ?? '',
+          cleaningFee: (value['cleaningFee'] as num?)?.toDouble() ?? 0.0,
+          size: value['size']?.toString() ?? '',
+          propertyType: value['propertyType']?.toString() ?? '',
+          ownerName: value['ownerName']?.toString() ?? '',
+          ownerPhone: value['ownerPhone']?.toString() ?? '',
+          ownerEmail: value['ownerEmail']?.toString() ?? '',
+          propertyManagement: value['propertyManagement']?.toString() ?? '',
+          lockBoxPin: value['lockBoxPin']?.toString() ?? '',
+          housePin: value['housePin']?.toString() ?? '',
+          garagePin: value['garagePin']?.toString() ?? '',
+          order: (value['order'] as num?)?.toInt() ?? 0,
+          cleaningInstructions: value['cleaningInstructions']?.toString() ?? '',
+          instructionPhotos: (value['instructionPhotos'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+        ));
+      }
+    }
+
+    if (activeCompanyId == null) {
+      // Super Admin: Fetch from legacy 'properties' AND all 'companies/*/properties'
+      
+      // 1. Legacy
+      final legacySnap = await FirebaseDatabase.instance.ref('properties').get();
+      if (legacySnap.value != null) {
+        parseProperties(legacySnap.value as Map<dynamic, dynamic>, null);
+      }
+      
+      // 2. Companies
+      final companiesSnap = await FirebaseDatabase.instance.ref('companies').get();
+      if (companiesSnap.value != null) {
+        final companiesData = companiesSnap.value as Map<dynamic, dynamic>;
+        companiesData.forEach((compId, compData) {
+          final compMap = compData as Map<dynamic, dynamic>;
+          if (compMap.containsKey('properties')) {
+            parseProperties(compMap['properties'] as Map<dynamic, dynamic>, compId.toString());
+          }
+        });
+      }
+    } else {
+      // Company Admin/User: Fetch only from their specific company bucket
+      final snapshot = await _ref.get();
+      if (snapshot.value != null) {
+        parseProperties(snapshot.value as Map<dynamic, dynamic>, activeCompanyId);
+      }
+    }
+
     // Natively sort properties by their stored order value
     properties.sort((a, b) => a.order.compareTo(b.order));
     return properties;
