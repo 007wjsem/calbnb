@@ -15,6 +15,15 @@ enum SubscriptionTier {
     }
   }
 
+  int get maxProperties {
+    switch (this) {
+      case SubscriptionTier.starter: return 3;
+      case SubscriptionTier.pro: return 20;
+      case SubscriptionTier.agency: return 100;
+      case SubscriptionTier.enterprise: return 99999;
+    }
+  }
+
   static SubscriptionTier fromString(String? value) {
     switch (value) {
       case 'pro': return SubscriptionTier.pro;

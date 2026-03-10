@@ -7,9 +7,8 @@ import 'package:image_picker/image_picker.dart';
 import '../../admin/data/property_repository.dart';
 import '../../admin/domain/property.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../company/data/company_repository.dart';
 import '../../../core/theme/app_colors.dart';
-
-import '../data/property_repository.dart';
 
 class PropertyManagementScreen extends ConsumerStatefulWidget {
   const PropertyManagementScreen({super.key});
@@ -82,6 +81,12 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     final repo = ref.watch(propertyRepositoryProvider);
     final currentUser = ref.watch(authControllerProvider);
     final isSuperAdmin = currentUser?.role.displayName == 'Super Admin';
+    final activeCompanyId = currentUser?.activeCompanyId;
+    final companyAsync = activeCompanyId != null ? ref.watch(companyProvider(activeCompanyId)) : const AsyncValue.loading();
+    final company = companyAsync.valueOrNull;
+    
+    final bool canAddProperty = isSuperAdmin || (company != null && _allProperties.length < company.tier.maxProperties);
+
     final filtered = _filtered;
     final cities = _cities;
     final mgmts = _mgmts;
@@ -107,11 +112,13 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showPropertyDialog(context, ref, repo),
-        backgroundColor: AppColors.primary,
+        onPressed: canAddProperty 
+            ? () => _showPropertyDialog(context, ref, repo)
+            : () => _showLimitDialog(context, company?.tier.maxProperties ?? 3),
+        backgroundColor: canAddProperty ? AppColors.primary : Colors.grey.shade600,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_home_outlined),
-        label: const Text('Add Property'),
+        icon: Icon(canAddProperty ? Icons.add_home_outlined : Icons.lock_outline),
+        label: Text(canAddProperty ? 'Add Property' : 'Limit Reached'),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -638,6 +645,29 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
       garagePin: '${random.nextInt(9000) + 1000}',
       cleaningInstructions: 'Please ensure all sand is swept out and linens are washed.',
       instructionPhotos: [],
+    );
+  }
+
+  void _showLimitDialog(BuildContext context, int limit) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Subscription Limit Reached'),
+        content: Text('Your current plan limits you to $limit properties. Please upgrade your subscription to add more properties.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/admin/subscription');
+            },
+            child: const Text('Upgrade Plan'),
+          ),
+        ],
+      ),
     );
   }
 }

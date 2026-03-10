@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'inspector_dashboard.dart';
+import '../../company/presentation/subscription_guard.dart';
+import '../../company/domain/subscription.dart';
 
 class InspectionsScreen extends StatelessWidget {
   const InspectionsScreen({super.key});
@@ -15,7 +17,10 @@ class InspectionsScreen extends StatelessWidget {
           onPressed: () => context.go('/'),
         ),
       ),
-      body: const InspectorDashboard(),
+      body: const SubscriptionGuard(
+        requiredTier: SubscriptionTier.pro,
+        child: InspectorDashboard(),
+      ),
     );
   }
 }

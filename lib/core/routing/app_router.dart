@@ -14,6 +14,7 @@ import '../../features/dashboard/presentation/assignments_screen.dart';
 import '../../features/dashboard/presentation/earnings_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/company/presentation/company_management_screen.dart';
+import '../../features/company/presentation/company_subscription_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
@@ -95,6 +96,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/companies',
         builder: (context, state) => const CompanyManagementScreen(),
+      ),
+      GoRoute(
+        path: '/admin/subscription',
+        builder: (context, state) => const CompanySubscriptionScreen(),
       ),
     ],
   );

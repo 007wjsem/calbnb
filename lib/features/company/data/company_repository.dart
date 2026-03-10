@@ -27,7 +27,12 @@ class CompanyRepository {
     // Ensure we save the generated ID back to the object if it was empty
     final companyToSave = company.id.isEmpty ? company.copyWith(id: newRef.key!) : company;
     
+    
     await newRef.set(companyToSave.toMap());
+  }
+
+  Future<void> updateCompany(Company company) async {
+    await _db.ref('companies/${company.id}').update(company.toMap());
   }
 }
 

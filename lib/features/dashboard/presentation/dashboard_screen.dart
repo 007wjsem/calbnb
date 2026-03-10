@@ -254,6 +254,15 @@ class DashboardWrapper extends ConsumerWidget {
                 context.go('/admin/settings');
               },
             ),
+            _SidebarItem(
+              icon: Icons.credit_card_outlined,
+              title: 'Billing & Plan',
+              isSelected: currentRoute == '/admin/subscription',
+              onTap: () {
+                if (!isDesktop) Navigator.pop(context);
+                context.go('/admin/subscription');
+              },
+            ),
             const SizedBox(height: 16),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),

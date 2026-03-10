@@ -101,7 +101,11 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                           child: const Icon(Icons.business, color: AppColors.primary),
                         ),
                         title: Text(company.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Status: ${company.status.name}'),
+                        subtitle: Text('Status: ${company.status.displayName} | Tier: ${company.tier.displayName}'),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () => _showEditCompanyDialog(context, ref, company),
+                        ),
                       ),
                     );
                   },
@@ -255,16 +259,97 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                               },
                               child: const Text('Create'),
                             ),
-                          ],
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
+              );
+            },
+          );
+        },
+      );
+    }
+
+    void _showEditCompanyDialog(BuildContext context, WidgetRef ref, Company company) {
+      SubscriptionTier selectedTier = company.tier;
+      SubscriptionStatus selectedStatus = company.status;
+      bool isSaving = false;
+
+      showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: Text('Edit ${company.name}'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<SubscriptionTier>(
+                      value: selectedTier,
+                      decoration: const InputDecoration(labelText: 'Subscription Tier'),
+                      items: SubscriptionTier.values.map((tier) {
+                        return DropdownMenuItem(
+                          value: tier,
+                          child: Text(tier.displayName),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => selectedTier = val);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<SubscriptionStatus>(
+                      value: selectedStatus,
+                      decoration: const InputDecoration(labelText: 'Status'),
+                      items: SubscriptionStatus.values.map((status) {
+                        return DropdownMenuItem(
+                          value: status,
+                          child: Text(status.displayName),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => selectedStatus = val);
+                      },
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: isSaving ? null : () async {
+                      setState(() => isSaving = true);
+                      try {
+                        final updatedCompany = company.copyWith(
+                          tier: selectedTier,
+                          status: selectedStatus,
+                        );
+                        await ref.read(companyRepositoryProvider).updateCompany(updatedCompany);
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Company updated successfully')),
+                          );
+                        }
+                      } catch (e) {
+                        setState(() => isSaving = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+                          );
+                        }
+                      }
+                    },
+                    child: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('Save'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    }
 }
