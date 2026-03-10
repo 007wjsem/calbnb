@@ -14,11 +14,8 @@ class DailyReservations extends _$DailyReservations {
   Stream<List<Reservation>> build(DateTime date) async* {
     final activeCompanyId = ref.watch(authControllerProvider)?.activeCompanyId;
     
-    final DatabaseReference dbRef = activeCompanyId == null 
-        ? FirebaseDatabase.instance.ref()
-        : FirebaseDatabase.instance.ref('companies/$activeCompanyId');
-
-    final ref_calendar = dbRef.child('master_calendar');
+    // The new reservation standard uses the `reservations` node scoped per company.
+    final ref_calendar = dbRef.child('reservations');
     final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
 
     await for (final event in ref_calendar.onValue) {
@@ -41,23 +38,25 @@ class DailyReservations extends _$DailyReservations {
             final checkout = value['checkOut'] as String?;
             final checkin = value['checkIn'] as String?;
             
-            // The 'propertyId' historically stored in master_calendar actually maps to the display order.
-            final propertyOrderIdStr = value['propertyId'] as String?;
+            // Under the new standard, `propertyId` should strictly map to the property document ID
+            final propertyIdStr = value['propertyId'] as String?;
             
             String resolvedPropertyName = 'Missing Name';
             String resolvedPropertyAddress = 'Missing Address';
             
-            if (propertyOrderIdStr != null) {
-              final int? targetOrder = int.tryParse(propertyOrderIdStr);
-              if (targetOrder != null) {
-                // Try to find a property that perfectly matches this order index
+            if (propertyIdStr != null && propertyIdStr.isNotEmpty) {
+              try {
+                // Find the property that matches this Firebase ID
+                final matchedProp = allProperties.firstWhere((p) => p.id == propertyIdStr);
+                resolvedPropertyName = matchedProp.name;
+                resolvedPropertyAddress = matchedProp.address;
+              } catch (_) {
+                // If it doesn't match an ID, optionally check if the integration passed the raw property name
                 try {
-                  final matchedProp = allProperties.firstWhere((p) => p.order == targetOrder);
-                  resolvedPropertyName = matchedProp.name;
-                  resolvedPropertyAddress = matchedProp.address;
-                } catch (_) {
-                  // firstWhere throws StateError if no matching element is found
-                }
+                  final matchedPropByName = allProperties.firstWhere((p) => p.name == propertyIdStr);
+                  resolvedPropertyName = matchedPropByName.name;
+                  resolvedPropertyAddress = matchedPropByName.address;
+                } catch (_) { }
               }
             }
 
