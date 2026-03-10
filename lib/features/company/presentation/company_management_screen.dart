@@ -101,7 +101,7 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                           child: const Icon(Icons.business, color: AppColors.primary),
                         ),
                         title: Text(company.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Status: ${company.subscription.status.name}'),
+                        subtitle: Text('Status: ${company.status.name}'),
                       ),
                     );
                   },
@@ -213,11 +213,9 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                                   final newCompany = Company(
                                     id: newCompanyId,
                                     name: compName,
-                                    subscription: Subscription(
-                                      tier: SubscriptionTier.starter,
-                                      status: SubscriptionStatus.active,
-                                      startDate: DateTime.now(),
-                                    ),
+                                    ownerUid: '', // Will be replaced/set properly later or via super admin logic
+                                    tier: SubscriptionTier.starter,
+                                    status: SubscriptionStatus.active,
                                     createdAt: DateTime.now(),
                                   );
 

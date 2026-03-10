@@ -61,4 +61,32 @@ class Company {
       'majorReleasesUsed': majorReleasesUsed,
     };
   }
+
+  Company copyWith({
+    String? id,
+    String? name,
+    String? ownerUid,
+    SubscriptionTier? tier,
+    SubscriptionStatus? status,
+    String? stripeCustomerId,
+    String? stripeSubscriptionId,
+    int? propertyCount,
+    DateTime? createdAt,
+    DateTime? supportExpiresAt,
+    int? majorReleasesUsed,
+  }) {
+    return Company(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      ownerUid: ownerUid ?? this.ownerUid,
+      tier: tier ?? this.tier,
+      status: status ?? this.status,
+      stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
+      stripeSubscriptionId: stripeSubscriptionId ?? this.stripeSubscriptionId,
+      propertyCount: propertyCount ?? this.propertyCount,
+      createdAt: createdAt ?? this.createdAt,
+      supportExpiresAt: supportExpiresAt ?? this.supportExpiresAt,
+      majorReleasesUsed: majorReleasesUsed ?? this.majorReleasesUsed,
+    );
+  }
 }

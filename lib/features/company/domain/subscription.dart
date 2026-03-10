@@ -1,4 +1,4 @@
-export enum SubscriptionTier {
+enum SubscriptionTier {
   starter,
   pro,
   agency,
@@ -25,7 +25,7 @@ export enum SubscriptionTier {
   }
 }
 
-export enum SubscriptionStatus {
+enum SubscriptionStatus {
   trialing,
   active,
   pastDue,

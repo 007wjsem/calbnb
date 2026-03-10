@@ -6,7 +6,6 @@ import '../../admin/data/property_repository.dart';
 import '../../admin/domain/property.dart';
 
 final settingsRepositoryProvider = Provider((ref) => SettingsRepository());
-import '../../admin/data/property_repository.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
