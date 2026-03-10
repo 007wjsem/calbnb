@@ -15,8 +15,8 @@ class DailyReservations extends _$DailyReservations {
     final activeCompanyId = ref.watch(authControllerProvider)?.activeCompanyId;
     
     final ref_calendar = activeCompanyId == null 
-        ? FirebaseDatabase.instance.ref('companies')
-        : FirebaseDatabase.instance.ref('companies/$activeCompanyId/reservations');
+        ? FirebaseDatabase.instance.ref('calendar')
+        : FirebaseDatabase.instance.ref('calendar/$activeCompanyId');
 
     final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
 
@@ -123,16 +123,18 @@ class DailyReservations extends _$DailyReservations {
         }
 
         if (activeCompanyId == null) {
-          // If Super Admin, rawData is a map of ALL companies.
+          // If Super Admin, rawData is a map of ALL companies under `calendar`.
           if (rawData is Map) {
             for (final companyData in rawData.values) {
-              if (companyData is Map && companyData.containsKey('reservations')) {
-                processReservationsData(companyData['reservations']);
-              }
+              processReservationsData(companyData);
             }
+          } else if (rawData is List) {
+             for (final companyData in rawData) {
+               if (companyData != null) processReservationsData(companyData);
+             }
           }
         } else {
-          // If Admin, rawData is just the reservations node.
+          // If Admin, rawData is just the reservations array/map for their specific company.
           processReservationsData(rawData);
         }
 
