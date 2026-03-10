@@ -38,29 +38,39 @@ class DailyReservations extends _$DailyReservations {
 
         void processItem(String key, dynamic value) {
           if (value is Map) {
-            final guest = value['guest'] as String?;
-            final checkout = value['checkOut'] as String?;
-            final checkin = value['checkIn'] as String?;
+            final guest = value['guest']?.toString();
+            final checkout = value['checkOut']?.toString();
+            final checkin = value['checkIn']?.toString();
             
-            // Under the new standard, `propertyId` should strictly map to the property document ID
-            final propertyIdStr = value['propertyId'] as String?;
+            // Extract safely without rigid type casting in case Make.com sends integers
+            final propertyIdStr = value['propertyId']?.toString();
             
             String resolvedPropertyName = 'Missing Name';
             String resolvedPropertyAddress = 'Missing Address';
             
             if (propertyIdStr != null && propertyIdStr.isNotEmpty) {
               try {
-                // Find the property that matches this Firebase ID
+                // 1. Try finding by rigid Document ID
                 final matchedProp = allProperties.firstWhere((p) => p.id == propertyIdStr);
                 resolvedPropertyName = matchedProp.name;
                 resolvedPropertyAddress = matchedProp.address;
               } catch (_) {
-                // If it doesn't match an ID, optionally check if the integration passed the raw property name
                 try {
+                  // 2. Fallback: Try finding by Property Name
                   final matchedPropByName = allProperties.firstWhere((p) => p.name == propertyIdStr);
                   resolvedPropertyName = matchedPropByName.name;
                   resolvedPropertyAddress = matchedPropByName.address;
-                } catch (_) { }
+                } catch (_) { 
+                  // 3. Fallback: Try finding by Legacy Order index
+                  final int? targetOrder = int.tryParse(propertyIdStr);
+                  if (targetOrder != null) {
+                    try {
+                      final matchedPropByOrder = allProperties.firstWhere((p) => p.order == targetOrder);
+                      resolvedPropertyName = matchedPropByOrder.name;
+                      resolvedPropertyAddress = matchedPropByOrder.address;
+                    } catch (_) {}
+                  }
+                }
               }
             }
 
