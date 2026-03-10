@@ -266,16 +266,18 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                               },
                               child: const Text('Create'),
                             ),
-                      ],
-                    ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
-              );
-            },
-          );
-        },
-      );
-    }
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
     void _showEditCompanyDialog(BuildContext context, WidgetRef ref, Company company) {
       SubscriptionTier selectedTier = company.tier;
