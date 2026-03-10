@@ -101,7 +101,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
               icon: const Icon(Icons.auto_awesome),
               tooltip: 'Generate Dummy Property (Test)',
               onPressed: () async {
-                final dummyProp = _generateDummyProperty();
+                final dummyProp = _generateDummyProperty(activeCompanyId);
                 await repo.add(dummyProp);
                 await _loadProperties();
                 if (context.mounted) {
@@ -652,7 +652,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     );
   }
 
-  Property _generateDummyProperty() {
+  Property _generateDummyProperty(String? activeCompanyId) {
     final random = Random();
     
     final streets = ['Gulf Dr', 'Pine Ave', 'Marina Dr', 'Palm Ave', 'Spring Ave', 'Magnolia Ave', 'Bay Blvd'];
