@@ -263,6 +263,17 @@ class DashboardWrapper extends ConsumerWidget {
                 ),
               ),
             ),
+            if (user.role == AppRole.superAdmin) ...[
+              _SidebarItem(
+                icon: Icons.business_center_rounded,
+                title: 'Companies',
+                isSelected: currentRoute == '/admin/companies',
+                onTap: () {
+                  if (!isDesktop) Navigator.pop(context);
+                  context.go('/admin/companies');
+                },
+              ),
+            ],
             _SidebarItem(
               icon: Icons.people_alt_rounded,
               title: 'Users',

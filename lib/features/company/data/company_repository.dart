@@ -21,6 +21,14 @@ class CompanyRepository {
       }).toList();
     });
   }
+  Future<void> createCompany(Company company) async {
+    final newRef = company.id.isEmpty ? _db.ref('companies').push() : _db.ref('companies/${company.id}');
+    
+    // Ensure we save the generated ID back to the object if it was empty
+    final companyToSave = company.id.isEmpty ? company.copyWith(id: newRef.key!) : company;
+    
+    await newRef.set(companyToSave.toMap());
+  }
 }
 
 // ─── Providers ────────────────────────────────────────────────────────────────

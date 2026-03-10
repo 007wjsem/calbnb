@@ -35,7 +35,13 @@ class UserRepository {
     }).toList();
   }
 
-  Future<void> add({required String email, required String password, required User user}) async {
+  Future<void> add({
+    required String email, 
+    required String password, 
+    required User user,
+    List<String>? companyIds,
+    String? activeCompanyId,
+  }) async {
     // 1. Create the user in Firebase Authentication
     // Note: This requires another Firebase App instance or creating via the main instance.
     // If the admin is creating this, `createUserWithEmailAndPassword` will sign out the current admin.
@@ -54,6 +60,8 @@ class UserRepository {
       'role': user.role.displayName,
       'email': email,
       'isActive': true,
+      if (companyIds != null) 'companyIds': companyIds,
+      if (activeCompanyId != null) 'activeCompanyId': activeCompanyId,
       if (user.phone != null) 'phone': user.phone,
       if (user.address != null) 'address': user.address,
       if (user.emergencyContact != null) 'emergencyContact': user.emergencyContact,
