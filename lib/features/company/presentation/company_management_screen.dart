@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../data/company_repository.dart';
@@ -106,7 +107,21 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                           children: [
                             Text('Status: ${company.status.displayName} | Tier: ${company.tier.displayName}'),
                             const SizedBox(height: 2),
-                            Text('ID: ${company.id}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            Row(
+                              children: [
+                                Text('ID: ${company.id}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                const SizedBox(width: 4),
+                                InkWell(
+                                  onTap: () {
+                                    Clipboard.setData(ClipboardData(text: company.id));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Copied ID to clipboard'), duration: Duration(seconds: 2)),
+                                    );
+                                  },
+                                  child: const Icon(Icons.copy, size: 14, color: Colors.grey),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                         trailing: IconButton(
