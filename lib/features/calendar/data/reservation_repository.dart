@@ -14,6 +14,10 @@ class DailyReservations extends _$DailyReservations {
   Stream<List<Reservation>> build(DateTime date) async* {
     final activeCompanyId = ref.watch(authControllerProvider)?.activeCompanyId;
     
+    final DatabaseReference dbRef = activeCompanyId == null 
+        ? FirebaseDatabase.instance.ref()
+        : FirebaseDatabase.instance.ref('companies/$activeCompanyId');
+
     // The new reservation standard uses the `reservations` node scoped per company.
     final ref_calendar = dbRef.child('reservations');
     final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
