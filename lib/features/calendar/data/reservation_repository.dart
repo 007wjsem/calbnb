@@ -14,12 +14,10 @@ class DailyReservations extends _$DailyReservations {
   Stream<List<Reservation>> build(DateTime date) async* {
     final activeCompanyId = ref.watch(authControllerProvider)?.activeCompanyId;
     
-    final DatabaseReference dbRef = activeCompanyId == null 
-        ? FirebaseDatabase.instance.ref()
-        : FirebaseDatabase.instance.ref('companies/$activeCompanyId');
+    final ref_calendar = activeCompanyId == null 
+        ? FirebaseDatabase.instance.ref('companies')
+        : FirebaseDatabase.instance.ref('companies/$activeCompanyId/reservations');
 
-    // The new reservation standard uses the `reservations` node scoped per company.
-    final ref_calendar = dbRef.child('reservations');
     final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
 
     await for (final event in ref_calendar.onValue) {
@@ -47,6 +45,7 @@ class DailyReservations extends _$DailyReservations {
             
             String resolvedPropertyName = 'Missing Name';
             String resolvedPropertyAddress = 'Missing Address';
+            String resolvedCompanyId = activeCompanyId ?? '';
             
             if (propertyIdStr != null && propertyIdStr.isNotEmpty) {
               try {
@@ -54,12 +53,14 @@ class DailyReservations extends _$DailyReservations {
                 final matchedProp = allProperties.firstWhere((p) => p.id == propertyIdStr);
                 resolvedPropertyName = matchedProp.name;
                 resolvedPropertyAddress = matchedProp.address;
+                resolvedCompanyId = matchedProp.companyId;
               } catch (_) {
                 try {
                   // 2. Fallback: Try finding by Property Name
                   final matchedPropByName = allProperties.firstWhere((p) => p.name == propertyIdStr);
                   resolvedPropertyName = matchedPropByName.name;
                   resolvedPropertyAddress = matchedPropByName.address;
+                  resolvedCompanyId = matchedPropByName.companyId;
                 } catch (_) { 
                   // 3. Fallback: Try finding by Legacy Order index
                   final int? targetOrder = int.tryParse(propertyIdStr);
@@ -68,6 +69,7 @@ class DailyReservations extends _$DailyReservations {
                       final matchedPropByOrder = allProperties.firstWhere((p) => p.order == targetOrder);
                       resolvedPropertyName = matchedPropByOrder.name;
                       resolvedPropertyAddress = matchedPropByOrder.address;
+                      resolvedCompanyId = matchedPropByOrder.companyId;
                     } catch (_) {}
                   }
                 }
@@ -82,6 +84,7 @@ class DailyReservations extends _$DailyReservations {
                  matchingReservations.add(
                     Reservation(
                       id: '${key}_out',
+                      companyId: resolvedCompanyId,
                       guestName: guest,
                       propertyName: displayPropertyString,
                       date: date,
@@ -95,6 +98,7 @@ class DailyReservations extends _$DailyReservations {
                  matchingReservations.add(
                     Reservation(
                       id: '${key}_in',
+                      companyId: resolvedCompanyId,
                       guestName: guest,
                       propertyName: displayPropertyString,
                       date: date,
@@ -106,18 +110,30 @@ class DailyReservations extends _$DailyReservations {
           }
         }
 
-        // Firebase sometimes returns a List if keys are consecutive integers (like an array)
-        if (rawData is List) {
-          for (int i = 0; i < rawData.length; i++) {
-            if (rawData[i] != null) {
-              processItem(i.toString(), rawData[i]);
+        void processReservationsData(Object? data) {
+          if (data is List) {
+            for (int i = 0; i < data.length; i++) {
+              if (data[i] != null) processItem(i.toString(), data[i]);
+            }
+          } else if (data is Map) {
+            data.forEach((key, value) {
+              processItem(key.toString(), value);
+            });
+          }
+        }
+
+        if (activeCompanyId == null) {
+          // If Super Admin, rawData is a map of ALL companies.
+          if (rawData is Map) {
+            for (final companyData in rawData.values) {
+              if (companyData is Map && companyData.containsKey('reservations')) {
+                processReservationsData(companyData['reservations']);
+              }
             }
           }
-        } else if (rawData is Map) {
-          // Otherwise it returns a standard Map
-          rawData.forEach((key, value) {
-            processItem(key.toString(), value);
-          });
+        } else {
+          // If Admin, rawData is just the reservations node.
+          processReservationsData(rawData);
         }
 
         yield matchingReservations;

@@ -304,7 +304,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                         if (existingAssignment != null) ...[
                           TextButton.icon(
                             onPressed: () async {
-                              await cleaningRepository.deleteAssignment(dateStr, reservation.id);
+                              await cleaningRepository.deleteAssignment(dateStr, reservation.id, reservation.companyId);
                               if (context.mounted) Navigator.pop(context);
                             },
                             icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
@@ -332,6 +332,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
 
                             final assignment = CleaningAssignment(
                               id: existingAssignment?.id ?? '',
+                              companyId: reservation.companyId,
                               reservationId: reservation.id,
                               propertyId: reservation.propertyName,
                               cleanerId: selectedCleanerId!,

@@ -5,6 +5,7 @@ enum ReservationEventType {
 
 class Reservation {
   final String id;
+  final String companyId;
   final String guestName;
   final String propertyName;
   final DateTime date;
@@ -12,6 +13,7 @@ class Reservation {
 
   const Reservation({
     required this.id,
+    required this.companyId,
     required this.guestName,
     required this.propertyName,
     required this.date,

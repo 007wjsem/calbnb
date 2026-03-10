@@ -52,6 +52,7 @@ class InspectionFinding {
 
 class CleaningAssignment {
   final String id;
+  final String companyId; // <-- NEW
   final String reservationId; // The ID of the Checkout reservation
   final String propertyId;
   final String cleanerId; // Employee ID
@@ -69,6 +70,7 @@ class CleaningAssignment {
 
   CleaningAssignment({
     required this.id,
+    required this.companyId,
     required this.reservationId,
     required this.propertyId,
     required this.cleanerId,
@@ -124,6 +126,7 @@ class CleaningAssignment {
   factory CleaningAssignment.fromMap(String id, Map<dynamic, dynamic> map) {
     return CleaningAssignment(
       id: id,
+      companyId: map['companyId']?.toString() ?? '',
       reservationId: map['reservationId']?.toString() ?? '',
       propertyId: map['propertyId']?.toString() ?? '',
       cleanerId: map['cleanerId']?.toString() ?? '',
@@ -146,6 +149,7 @@ class CleaningAssignment {
 
   Map<String, dynamic> toMap() {
     return {
+      'companyId': companyId,
       'reservationId': reservationId,
       'propertyId': propertyId,
       'cleanerId': cleanerId,
