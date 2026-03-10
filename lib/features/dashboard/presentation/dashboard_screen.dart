@@ -37,7 +37,7 @@ class DashboardWrapper extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('All In 1 Home - ${user.role.displayName} Dashboard'),
+        title: Text('${user.role == AppRole.superAdmin ? 'System' : 'All In 1 Home'} - ${user.role.displayName} Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -93,16 +93,18 @@ class DashboardWrapper extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  height: 36,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 10),
-                const Expanded(
+                if (user.role != AppRole.superAdmin) ...[
+                  Image.asset(
+                    'assets/images/logo.png',
+                    height: 36,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
                   child: Text(
-                    'All In 1 Home',
-                    style: TextStyle(
+                    user.role == AppRole.superAdmin ? 'System Administration' : 'All In 1 Home',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
