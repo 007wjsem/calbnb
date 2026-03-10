@@ -308,341 +308,436 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
         ? existingProperty!.companyId
         : (isSuperAdmin ? '' : userCompanyId);
 
+    int currentStep = 0;
+
     showDialog(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 600),
-                padding: const EdgeInsets.all(32),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // ── Company selector (Super Admin only) ──────────────
-                      if (isSuperAdmin) ...[
-                        Consumer(builder: (ctx, cref, _) {
-                          final companiesAsync = cref.watch(globalCompaniesProvider);
-                          return companiesAsync.when(
-                            data: (companies) => DropdownButtonFormField<String>(
-                              value: selectedCompanyId.isNotEmpty ? selectedCompanyId : null,
-                              decoration: const InputDecoration(
-                                labelText: 'Assign to Company *',
-                                prefixIcon: Icon(Icons.business_outlined),
-                              ),
-                              hint: const Text('Select company'),
-                              items: companies.map((c) => DropdownMenuItem(
-                                value: c.id,
-                                child: Text(c.name),
-                              )).toList(),
-                              onChanged: (val) => setState(() => selectedCompanyId = val ?? ''),
-                            ),
-                            loading: () => const LinearProgressIndicator(),
-                            error: (e, _) => Text('Error: $e'),
-                          );
-                        }),
-                        const SizedBox(height: 16),
-                      ] else ...[
-                        // Read-only company indicator for Admins
-                        Consumer(builder: (ctx, cref, _) {
-                          final companyAsync = userCompanyId.isNotEmpty
-                              ? cref.watch(companyProvider(userCompanyId))
-                              : const AsyncValue<dynamic>.data(null);
-                          final company = companyAsync.valueOrNull;
-                          return InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Company',
-                              prefixIcon: Icon(Icons.business_outlined),
-                            ),
-                            child: Text(
-                              company?.name ?? userCompanyId,
-                              style: const TextStyle(color: AppColors.textPrimary),
-                            ),
-                          );
-                        }),
-                        const SizedBox(height: 16),
-                      ],
-                      // ── Property Name + Type ─────────────────────────────
-                      Row(
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: nameController,
-                              decoration: const InputDecoration(labelText: 'Property Name', prefixIcon: Icon(Icons.label_outline)),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: selectedType,
-                              decoration: const InputDecoration(labelText: 'Property Type', prefixIcon: Icon(Icons.category_outlined)),
-                              items: ['House', 'Apartment', 'Other'].map((type) {
-                                return DropdownMenuItem(value: type, child: Text(type));
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) setState(() => selectedType = val);
-                              },
-                            ),
-                          ),
-                        ],
+            
+            Widget buildCompanySelector() {
+              if (isSuperAdmin) {
+                return Consumer(builder: (ctx, cref, _) {
+                  final companiesAsync = cref.watch(globalCompaniesProvider);
+                  return companiesAsync.when(
+                    data: (companies) => DropdownButtonFormField<String>(
+                      value: selectedCompanyId.isNotEmpty ? selectedCompanyId : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Assign to Company *',
+                        prefixIcon: Icon(Icons.business_outlined),
                       ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: addressController,
-                        decoration: const InputDecoration(labelText: 'Street Address', prefixIcon: Icon(Icons.location_on_outlined)),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: cityController,
-                              decoration: const InputDecoration(labelText: 'City'),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: stateController,
-                              decoration: const InputDecoration(labelText: 'State/Province'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                               controller: zipCodeController,
-                               decoration: const InputDecoration(labelText: 'Zip/Postal Code'),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                               controller: countryController,
-                               decoration: const InputDecoration(labelText: 'Country'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: cleaningFeeController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(labelText: 'Cleaning Fee (\$)', prefixIcon: Icon(Icons.attach_money)),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: sizeController,
-                              decoration: const InputDecoration(labelText: 'Size (e.g. 1500 sqft)', prefixIcon: Icon(Icons.aspect_ratio)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Text('Owner Information', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey.shade700)),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: ownerNameController,
-                              decoration: const InputDecoration(labelText: 'Owner Name', prefixIcon: Icon(Icons.person_outline)),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: ownerPhoneController,
-                              keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone_outlined)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: ownerEmailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: propertyMgmtController,
-                              decoration: const InputDecoration(labelText: 'Property Management', prefixIcon: Icon(Icons.business_outlined)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Text('Access Pins', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey.shade700)),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: lockBoxPinController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'Lock Box Pin', prefixIcon: Icon(Icons.lock_outline)),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: housePinController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'House Pin', prefixIcon: Icon(Icons.door_front_door_outlined)),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: garagePinController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'Garage Pin', prefixIcon: Icon(Icons.garage_outlined)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Text('Cleaning Instructions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blueGrey.shade700)),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: cleaningInstructionsController,
-                        maxLines: 4,
-                        decoration: const InputDecoration(labelText: 'Instructions', alignLabelWithHint: true, prefixIcon: Icon(Icons.cleaning_services_outlined)),
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: ElevatedButton.icon(
-                          onPressed: () async {
-                            final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50, maxWidth: 800);
-                            if (image != null) {
-                              final bytes = await image.readAsBytes();
-                              final base64String = base64Encode(bytes);
-                              setState(() {
-                                instructionPhotos.add(base64String);
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.add_a_photo),
-                          label: const Text('Add Instruction Photo'),
-                        ),
-                      ),
-                      if (instructionPhotos.isNotEmpty) ...[
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: instructionPhotos.asMap().entries.map((entry) {
-                            final index = entry.key;
-                            final photoB64 = entry.value;
-                            return Stack(
-                              children: [
-                                Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(8),
-                                    image: DecorationImage(
-                                      image: MemoryImage(base64Decode(photoB64)),
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  right: 0,
-                                  top: 0,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.cancel, color: Colors.red),
-                                    onPressed: () {
-                                      setState(() {
-                                        instructionPhotos.removeAt(index);
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            );
-                          }).toList(),
-                        ),
-                      ],
-                      const SizedBox(height: 32),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
-                          ),
-                          const SizedBox(width: 16),
-                          ElevatedButton(
-                            onPressed: () async {
-                              final newProp = Property(
-                                id: isEditing ? existingProperty!.id : '',
-                                companyId: selectedCompanyId,
-                                name: nameController.text.trim(),
-                                address: addressController.text.trim(),
-                                zipCode: zipCodeController.text.trim(),
-                                city: cityController.text.trim(),
-                                state: stateController.text.trim(),
-                                country: countryController.text.trim(),
-                                propertyType: selectedType,
-                                cleaningFee: double.tryParse(cleaningFeeController.text) ?? 0.0,
-                                size: sizeController.text.trim(),
-                                ownerName: ownerNameController.text.trim(),
-                                ownerPhone: ownerPhoneController.text.trim(),
-                                ownerEmail: ownerEmailController.text.trim(),
-                                propertyManagement: propertyMgmtController.text.trim(),
-                                lockBoxPin: lockBoxPinController.text.trim(),
-                                housePin: housePinController.text.trim(),
-                                garagePin: garagePinController.text.trim(),
-                                order: isEditing ? existingProperty!.order : -1, // order defaults to -1 on add, handled by repository
-                                cleaningInstructions: cleaningInstructionsController.text.trim(),
-                                instructionPhotos: instructionPhotos,
-                              );
+                      hint: const Text('Select company'),
+                      items: companies.map((c) => DropdownMenuItem(
+                        value: c.id,
+                        child: Text(c.name),
+                      )).toList(),
+                      onChanged: (val) => setState(() => selectedCompanyId = val ?? ''),
+                    ),
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text('Error: $e'),
+                  );
+                });
+              } else {
+                return Consumer(builder: (ctx, cref, _) {
+                  final companyAsync = userCompanyId.isNotEmpty
+                      ? cref.watch(companyProvider(userCompanyId))
+                      : const AsyncValue<dynamic>.data(null);
+                  final company = companyAsync.valueOrNull;
+                  return InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Company',
+                      prefixIcon: Icon(Icons.business_outlined),
+                    ),
+                    child: Text(
+                      company?.name ?? userCompanyId,
+                      style: const TextStyle(color: AppColors.textPrimary),
+                    ),
+                  );
+                });
+              }
+            }
 
-                              if (isEditing) {
-                                await repo.update(newProp);
-                              } else {
-                                await repo.add(newProp);
-                              }
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                await _loadProperties();
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0284C7),
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('Save Property'),
+            final steps = [
+              Step(
+                title: const Text('Basic', style: TextStyle(fontSize: 13)),
+                isActive: currentStep >= 0,
+                state: currentStep > 0 ? StepState.complete : StepState.indexed,
+                content: Column(
+                  children: [
+                    buildCompanySelector(),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: nameController,
+                            decoration: const InputDecoration(labelText: 'Property Name', prefixIcon: Icon(Icons.label_outline)),
                           ),
-                        ],
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: selectedType,
+                            decoration: const InputDecoration(labelText: 'Property Type', prefixIcon: Icon(Icons.category_outlined)),
+                            items: ['House', 'Apartment', 'Other'].map((type) {
+                              return DropdownMenuItem(value: type, child: Text(type));
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) setState(() => selectedType = val);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Step(
+                title: const Text('Location', style: TextStyle(fontSize: 13)),
+                isActive: currentStep >= 1,
+                state: currentStep > 1 ? StepState.complete : StepState.indexed,
+                content: Column(
+                  children: [
+                    TextField(
+                      controller: addressController,
+                      decoration: const InputDecoration(labelText: 'Street Address', prefixIcon: Icon(Icons.location_on_outlined)),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: cityController,
+                            decoration: const InputDecoration(labelText: 'City'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: stateController,
+                            decoration: const InputDecoration(labelText: 'State/Province'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                             controller: zipCodeController,
+                             decoration: const InputDecoration(labelText: 'Zip/Postal Code'),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                             controller: countryController,
+                             decoration: const InputDecoration(labelText: 'Country'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Step(
+                title: const Text('Details', style: TextStyle(fontSize: 13)),
+                isActive: currentStep >= 2,
+                state: currentStep > 2 ? StepState.complete : StepState.indexed,
+                content: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: cleaningFeeController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'Cleaning Fee (\$)', prefixIcon: Icon(Icons.attach_money)),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: sizeController,
+                            decoration: const InputDecoration(labelText: 'Size (e.g. 1500 sqft)', prefixIcon: Icon(Icons.aspect_ratio)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: propertyMgmtController,
+                      decoration: const InputDecoration(labelText: 'Property Management Company', prefixIcon: Icon(Icons.business_outlined)),
+                    ),
+                  ],
+                ),
+              ),
+              Step(
+                title: const Text('Owner', style: TextStyle(fontSize: 13)),
+                isActive: currentStep >= 3,
+                state: currentStep > 3 ? StepState.complete : StepState.indexed,
+                content: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: ownerNameController,
+                            decoration: const InputDecoration(labelText: 'Owner Name', prefixIcon: Icon(Icons.person_outline)),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: ownerPhoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone_outlined)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: ownerEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
+                    ),
+                  ],
+                ),
+              ),
+              Step(
+                title: const Text('Access', style: TextStyle(fontSize: 13)),
+                isActive: currentStep >= 4,
+                state: currentStep > 4 ? StepState.complete : StepState.indexed,
+                content: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: lockBoxPinController,
+                            keyboardType: TextInputType.text,
+                            decoration: const InputDecoration(labelText: 'Lock Box Pin', prefixIcon: Icon(Icons.lock_outline)),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: housePinController,
+                            keyboardType: TextInputType.text,
+                            decoration: const InputDecoration(labelText: 'House Pin', prefixIcon: Icon(Icons.door_front_door_outlined)),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: garagePinController,
+                            keyboardType: TextInputType.text,
+                            decoration: const InputDecoration(labelText: 'Garage Pin', prefixIcon: Icon(Icons.garage_outlined)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: cleaningInstructionsController,
+                      maxLines: 4,
+                      decoration: const InputDecoration(labelText: 'Cleaning Instructions', alignLabelWithHint: true, prefixIcon: Icon(Icons.cleaning_services_outlined)),
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 50, maxWidth: 800);
+                          if (image != null) {
+                            final bytes = await image.readAsBytes();
+                            final base64String = base64Encode(bytes);
+                            setState(() {
+                              instructionPhotos.add(base64String);
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.add_a_photo),
+                        label: const Text('Add Instruction Photo'),
+                      ),
+                    ),
+                    if (instructionPhotos.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: instructionPhotos.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final photoB64 = entry.value;
+                          return Stack(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  image: DecorationImage(
+                                    image: MemoryImage(base64Decode(photoB64)),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: IconButton(
+                                  icon: const Icon(Icons.cancel, color: Colors.red),
+                                  onPressed: () {
+                                    setState(() {
+                                      instructionPhotos.removeAt(index);
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          );
+                        }).toList(),
                       ),
                     ],
-                  ),
+                  ],
+                ),
+              ),
+            ];
+
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              clipBehavior: Clip.antiAlias,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 900, maxHeight: 650),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                      color: AppColors.primary.withOpacity(0.05),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                isEditing ? 'Edit Property' : 'Add New Property',
+                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Complete the steps below to setup the property details.',
+                                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, thickness: 1),
+                    Expanded(
+                      child: Stepper(
+                        type: StepperType.horizontal,
+                        currentStep: currentStep,
+                        elevation: 0,
+                        onStepTapped: (index) {
+                          setState(() {
+                            currentStep = index;
+                          });
+                        },
+                        onStepContinue: () async {
+                          if (currentStep < steps.length - 1) {
+                            setState(() {
+                              currentStep += 1;
+                            });
+                          } else {
+                            // Final Save Validation
+                            if (isSuperAdmin && selectedCompanyId.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Please select a company for this property.')),
+                              );
+                              return;
+                            }
+                            
+                            final newProp = Property(
+                              id: isEditing ? existingProperty!.id : '',
+                              companyId: selectedCompanyId,
+                              name: nameController.text.trim(),
+                              address: addressController.text.trim(),
+                              zipCode: zipCodeController.text.trim(),
+                              city: cityController.text.trim(),
+                              state: stateController.text.trim(),
+                              country: countryController.text.trim(),
+                              propertyType: selectedType,
+                              cleaningFee: double.tryParse(cleaningFeeController.text) ?? 0.0,
+                              size: sizeController.text.trim(),
+                              ownerName: ownerNameController.text.trim(),
+                              ownerPhone: ownerPhoneController.text.trim(),
+                              ownerEmail: ownerEmailController.text.trim(),
+                              propertyManagement: propertyMgmtController.text.trim(),
+                              lockBoxPin: lockBoxPinController.text.trim(),
+                              housePin: housePinController.text.trim(),
+                              garagePin: garagePinController.text.trim(),
+                              order: isEditing ? existingProperty!.order : -1,
+                              cleaningInstructions: cleaningInstructionsController.text.trim(),
+                              instructionPhotos: instructionPhotos,
+                            );
+
+                            if (isEditing) {
+                              await repo.update(newProp);
+                            } else {
+                              await repo.add(newProp);
+                            }
+                            if (context.mounted) {
+                              Navigator.pop(context);
+                              await _loadProperties();
+                            }
+                          }
+                        },
+                        onStepCancel: () {
+                          if (currentStep > 0) {
+                            setState(() {
+                              currentStep -= 1;
+                            });
+                          } else {
+                            Navigator.pop(context);
+                          }
+                        },
+                        controlsBuilder: (context, details) {
+                          final isLastStep = currentStep == steps.length - 1;
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 32),
+                            child: Row(
+                              children: [
+                                FilledButton(
+                                  onPressed: details.onStepContinue,
+                                  style: FilledButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  ),
+                                  child: Text(isLastStep ? 'Save Property' : 'Continue'),
+                                ),
+                                const SizedBox(width: 12),
+                                TextButton(
+                                  onPressed: details.onStepCancel,
+                                  child: Text(currentStep == 0 ? 'Cancel' : 'Back'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        steps: steps,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
