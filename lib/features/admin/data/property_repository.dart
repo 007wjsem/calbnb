@@ -25,6 +25,7 @@ class PropertyRepository {
       final value = e.value as Map<dynamic, dynamic>;
       return Property(
         id: e.key.toString(),
+        companyId: value['companyId']?.toString() ?? activeCompanyId ?? '',
         name: value['name']?.toString() ?? 'Unknown',
         address: value['address']?.toString() ?? 'Unknown',
         zipCode: value['zipCode']?.toString() ?? '',
@@ -53,8 +54,14 @@ class PropertyRepository {
   }
 
   Future<void> add(Property property) async {
-    final newRef = property.id.isEmpty ? _ref.push() : _ref.child(property.id);
+    // If property has a specific companyId that differs from the active context,
+    // write directly to that company's bucket (Super Admin use case).
+    final targetRef = (property.companyId.isNotEmpty && property.companyId != activeCompanyId)
+        ? FirebaseDatabase.instance.ref('companies/${property.companyId}/properties')
+        : _ref;
+    final newRef = property.id.isEmpty ? targetRef.push() : targetRef.child(property.id);
     await newRef.set({
+      'companyId': property.companyId,
       'name': property.name,
       'address': property.address,
       'zipCode': property.zipCode,
@@ -78,7 +85,12 @@ class PropertyRepository {
   }
 
   Future<void> update(Property property) async {
-    await _ref.child(property.id).update({
+    // When editing, write to the correct company's bucket
+    final targetRef = (property.companyId.isNotEmpty && property.companyId != activeCompanyId)
+        ? FirebaseDatabase.instance.ref('companies/${property.companyId}/properties')
+        : _ref;
+    await targetRef.child(property.id).update({
+      'companyId': property.companyId,
       'name': property.name,
       'address': property.address,
       'zipCode': property.zipCode,

@@ -299,6 +299,15 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
         ? existingProperty!.propertyType 
         : 'House';
 
+    // Determine the user context for company access
+    final currentUser = ref.read(authControllerProvider);
+    final isSuperAdmin = currentUser?.role.displayName == 'Super Admin';
+    final userCompanyId = currentUser?.activeCompanyId ?? '';
+    // For super admins selecting target company; start with existing or empty
+    String selectedCompanyId = existingProperty?.companyId.isNotEmpty == true
+        ? existingProperty!.companyId
+        : (isSuperAdmin ? '' : userCompanyId);
+
     showDialog(
       context: context,
       builder: (context) {
@@ -314,16 +323,50 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        isEditing ? 'Edit Property Details' : 'Add New Property',
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        isEditing ? 'Modify the property information below.' : 'Fill out the property details below.',
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                      const SizedBox(height: 24),
+                      // ── Company selector (Super Admin only) ──────────────
+                      if (isSuperAdmin) ...[
+                        Consumer(builder: (ctx, cref, _) {
+                          final companiesAsync = cref.watch(globalCompaniesProvider);
+                          return companiesAsync.when(
+                            data: (companies) => DropdownButtonFormField<String>(
+                              value: selectedCompanyId.isNotEmpty ? selectedCompanyId : null,
+                              decoration: const InputDecoration(
+                                labelText: 'Assign to Company *',
+                                prefixIcon: Icon(Icons.business_outlined),
+                              ),
+                              hint: const Text('Select company'),
+                              items: companies.map((c) => DropdownMenuItem(
+                                value: c.id,
+                                child: Text(c.name),
+                              )).toList(),
+                              onChanged: (val) => setState(() => selectedCompanyId = val ?? ''),
+                            ),
+                            loading: () => const LinearProgressIndicator(),
+                            error: (e, _) => Text('Error: $e'),
+                          );
+                        }),
+                        const SizedBox(height: 16),
+                      ] else ...[
+                        // Read-only company indicator for Admins
+                        Consumer(builder: (ctx, cref, _) {
+                          final companyAsync = userCompanyId.isNotEmpty
+                              ? cref.watch(companyProvider(userCompanyId))
+                              : const AsyncValue<dynamic>.data(null);
+                          final company = companyAsync.valueOrNull;
+                          return InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Company',
+                              prefixIcon: Icon(Icons.business_outlined),
+                            ),
+                            child: Text(
+                              company?.name ?? userCompanyId,
+                              style: const TextStyle(color: AppColors.textPrimary),
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 16),
+                      ],
+                      // ── Property Name + Type ─────────────────────────────
                       Row(
                         children: [
                           Expanded(
@@ -558,6 +601,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                             onPressed: () async {
                               final newProp = Property(
                                 id: isEditing ? existingProperty!.id : '',
+                                companyId: selectedCompanyId,
                                 name: nameController.text.trim(),
                                 address: addressController.text.trim(),
                                 zipCode: zipCodeController.text.trim(),
@@ -627,6 +671,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     
     return Property(
       id: '',
+      companyId: activeCompanyId ?? '',
       name: 'Test $type on $street',
       address: '$houseNumber $street',
       city: city,

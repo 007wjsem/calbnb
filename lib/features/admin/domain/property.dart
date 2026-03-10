@@ -1,5 +1,6 @@
 class Property {
   final String id;
+  final String companyId;
   final String name;
   final String address;
   final String zipCode;
@@ -22,6 +23,7 @@ class Property {
 
   Property({
     required this.id,
+    required this.companyId,
     required this.name,
     required this.address,
     required this.zipCode,
@@ -42,4 +44,52 @@ class Property {
     this.cleaningInstructions = '',
     this.instructionPhotos = const [],
   });
+
+  Property copyWith({
+    String? id,
+    String? companyId,
+    String? name,
+    String? address,
+    String? zipCode,
+    String? city,
+    String? state,
+    String? country,
+    double? cleaningFee,
+    String? size,
+    String? propertyType,
+    String? ownerName,
+    String? ownerPhone,
+    String? ownerEmail,
+    String? propertyManagement,
+    String? lockBoxPin,
+    String? housePin,
+    String? garagePin,
+    int? order,
+    String? cleaningInstructions,
+    List<String>? instructionPhotos,
+  }) {
+    return Property(
+      id: id ?? this.id,
+      companyId: companyId ?? this.companyId,
+      name: name ?? this.name,
+      address: address ?? this.address,
+      zipCode: zipCode ?? this.zipCode,
+      city: city ?? this.city,
+      state: state ?? this.state,
+      country: country ?? this.country,
+      cleaningFee: cleaningFee ?? this.cleaningFee,
+      size: size ?? this.size,
+      propertyType: propertyType ?? this.propertyType,
+      ownerName: ownerName ?? this.ownerName,
+      ownerPhone: ownerPhone ?? this.ownerPhone,
+      ownerEmail: ownerEmail ?? this.ownerEmail,
+      propertyManagement: propertyManagement ?? this.propertyManagement,
+      lockBoxPin: lockBoxPin ?? this.lockBoxPin,
+      housePin: housePin ?? this.housePin,
+      garagePin: garagePin ?? this.garagePin,
+      order: order ?? this.order,
+      cleaningInstructions: cleaningInstructions ?? this.cleaningInstructions,
+      instructionPhotos: instructionPhotos ?? this.instructionPhotos,
+    );
+  }
 }
