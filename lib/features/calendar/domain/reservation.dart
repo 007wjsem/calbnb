@@ -7,6 +7,7 @@ class Reservation {
   final String id;
   final String guestName;
   final String propertyName;
+  final String? propertyId;
   final DateTime date;
   final ReservationEventType type;
 
@@ -14,7 +15,25 @@ class Reservation {
     required this.id,
     required this.guestName,
     required this.propertyName,
+    this.propertyId,
     required this.date,
     required this.type,
+  });
+}
+class TimelineReservation {
+  final String id;
+  final String guestName;
+  final String propertyName;
+  final String? propertyId; // Added to help group by property
+  final DateTime startDate;
+  final DateTime endDate;
+
+  const TimelineReservation({
+    required this.id,
+    required this.guestName,
+    required this.propertyName,
+    this.propertyId,
+    required this.startDate,
+    required this.endDate,
   });
 }

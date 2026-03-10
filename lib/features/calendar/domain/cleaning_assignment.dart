@@ -6,22 +6,53 @@ enum CleaningStatus {
   approved,
 }
 
+// Helper to handle both List and Map representations of "lists" from Firebase
+List<T> parseFirebaseList<T>(dynamic data, T Function(Map<dynamic, dynamic>) mapper) {
+  if (data == null) return [];
+  if (data is List) {
+    return data.whereType<Map>().map((e) => mapper(e as Map<dynamic, dynamic>)).toList();
+  }
+  if (data is Map) {
+    return data.values.whereType<Map>().map((e) => mapper(e as Map<dynamic, dynamic>)).toList();
+  }
+  return [];
+}
+
+List<String> parseFirebaseStringList(dynamic data) {
+  if (data == null) return [];
+  if (data is List) {
+    return data.map((e) => e.toString()).toList();
+  }
+  if (data is Map) {
+    return data.values.map((e) => e.toString()).toList();
+  }
+  return [];
+}
+
 class IncidentReport {
+  final String category;
   final String text;
   final List<String> photos;
   final String timestamp;
 
-  IncidentReport({required this.text, this.photos = const [], required this.timestamp});
+  IncidentReport({
+    required this.category, 
+    required this.text, 
+    this.photos = const [], 
+    required this.timestamp,
+  });
 
   factory IncidentReport.fromMap(Map<dynamic, dynamic> map) {
     return IncidentReport(
+      category: map['category']?.toString() ?? 'Others',
       text: map['text']?.toString() ?? '',
-      photos: (map['photos'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      photos: parseFirebaseStringList(map['photos']),
       timestamp: map['timestamp']?.toString() ?? '',
     );
   }
 
   Map<String, dynamic> toMap() => {
+    'category': category,
     'text': text,
     'photos': photos,
     'timestamp': timestamp,
@@ -38,7 +69,7 @@ class InspectionFinding {
   factory InspectionFinding.fromMap(Map<dynamic, dynamic> map) {
     return InspectionFinding(
       text: map['text']?.toString() ?? '',
-      photos: (map['photos'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      photos: parseFirebaseStringList(map['photos']),
       timestamp: map['timestamp']?.toString() ?? '',
     );
   }
@@ -121,7 +152,7 @@ class CleaningAssignment {
     );
   }
 
-  factory CleaningAssignment.fromMap(String id, Map<dynamic, dynamic> map) {
+  factory CleaningAssignment.fromMap(String id, Map<dynamic, dynamic> map, {String? fallbackDate}) {
     return CleaningAssignment(
       id: id,
       reservationId: map['reservationId']?.toString() ?? '',
@@ -130,8 +161,8 @@ class CleaningAssignment {
       cleanerName: map['cleanerName']?.toString() ?? '',
       inspectorId: map['inspectorId']?.toString(),
       inspectorName: map['inspectorName']?.toString(),
-      date: map['date']?.toString() ?? '',
-      assignedAt: map['assignedAt'] as String? ?? DateTime.now().toIso8601String(),
+      date: map['date']?.toString() ?? fallbackDate ?? '',
+      assignedAt: map['assignedAt']?.toString() ?? DateTime.now().toIso8601String(),
       observation: map['observation']?.toString() ?? '',
       status: CleaningStatus.values.firstWhere(
         (e) => e.name == map['status'],
@@ -139,8 +170,8 @@ class CleaningAssignment {
       ),
       startTime: map['startTime']?.toString() ?? '',
       endTime: map['endTime']?.toString() ?? '',
-      incidents: (map['incidents'] as List<dynamic>?)?.map((e) => IncidentReport.fromMap(e as Map<dynamic, dynamic>)).toList() ?? [],
-      findings: (map['findings'] as List<dynamic>?)?.map((e) => InspectionFinding.fromMap(e as Map<dynamic, dynamic>)).toList() ?? [],
+      incidents: parseFirebaseList(map['incidents'], (m) => IncidentReport.fromMap(m)),
+      findings: parseFirebaseList(map['findings'], (m) => InspectionFinding.fromMap(m)),
     );
   }
 

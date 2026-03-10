@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import '../../admin/presentation/property_management_screen.dart';
+import '../../admin/data/property_repository.dart';
 import '../../admin/presentation/user_management_screen.dart';
 import '../../calendar/data/cleaning_repository.dart';
 import '../../calendar/domain/cleaning_assignment.dart';

@@ -9,7 +9,7 @@ import '../../admin/domain/property.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/theme/app_colors.dart';
 
-final propertyRepositoryProvider = Provider((ref) => PropertyRepository());
+const Color kPrimaryColor = Color(0xFF0284C7);
 
 class PropertyManagementScreen extends ConsumerStatefulWidget {
   const PropertyManagementScreen({super.key});

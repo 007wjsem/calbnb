@@ -13,6 +13,8 @@ import '../../features/dashboard/presentation/inspections_screen.dart';
 import '../../features/dashboard/presentation/assignments_screen.dart';
 import '../../features/dashboard/presentation/earnings_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/management/presentation/metrics_screen.dart';
+import '../../features/management/presentation/reports_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
@@ -90,6 +92,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/inspections',
         builder: (context, state) => const InspectionsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/metrics',
+        builder: (context, state) => const MetricsScreen(),
+      ),
+      GoRoute(
+        path: '/admin/reports',
+        builder: (context, state) => const ReportsScreen(),
       ),
     ],
   );

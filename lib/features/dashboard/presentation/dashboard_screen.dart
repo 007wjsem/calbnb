@@ -279,6 +279,24 @@ class DashboardWrapper extends ConsumerWidget {
                 context.go('/admin/properties');
               },
             ),
+            _SidebarItem(
+              icon: Icons.bar_chart_rounded,
+              title: 'Metrics',
+              isSelected: currentRoute == '/admin/metrics',
+              onTap: () {
+                if (!isDesktop) Navigator.pop(context);
+                context.go('/admin/metrics');
+              },
+            ),
+            _SidebarItem(
+              icon: Icons.summarize_rounded,
+              title: 'Reports',
+              isSelected: currentRoute == '/admin/reports',
+              onTap: () {
+                if (!isDesktop) Navigator.pop(context);
+                context.go('/admin/reports');
+              },
+            ),
           ],
         ],
       ),

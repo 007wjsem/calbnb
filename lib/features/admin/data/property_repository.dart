@@ -1,5 +1,24 @@
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../admin/domain/property.dart';
+
+final propertyRepositoryProvider = Provider((ref) => PropertyRepository());
+
+final allPropertiesProvider = FutureProvider<List<Property>>((ref) async {
+  final repo = ref.watch(propertyRepositoryProvider);
+  return repo.fetchAll();
+});
+
+List<String> _parseFirebaseStringList(dynamic data) {
+  if (data == null) return [];
+  if (data is List) {
+    return data.map((e) => e.toString()).toList();
+  }
+  if (data is Map) {
+    return data.values.map((e) => e.toString()).toList();
+  }
+  return [];
+}
 
 class PropertyRepository {
   final DatabaseReference _ref = FirebaseDatabase.instance.ref('properties');
@@ -30,7 +49,7 @@ class PropertyRepository {
         garagePin: value['garagePin']?.toString() ?? '',
         order: (value['order'] as num?)?.toInt() ?? 0,
         cleaningInstructions: value['cleaningInstructions']?.toString() ?? '',
-        instructionPhotos: (value['instructionPhotos'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+        instructionPhotos: _parseFirebaseStringList(value['instructionPhotos']),
       );
     }).toList();
     

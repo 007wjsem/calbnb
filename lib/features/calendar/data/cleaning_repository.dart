@@ -15,18 +15,19 @@ final dailyCleaningAssignmentsProvider = StreamProvider.family<List<CleaningAssi
   // Listen to the node for this specific date
   // Data structure: cleaning_assignments / YYYY-MM-DD / reservationId -> CleaningAssignment
   final stream = repo._db.child('cleaning_assignments/$dateStr').onValue;
-  
   await for (final event in stream) {
-    final Map<dynamic, dynamic>? data = event.snapshot.value as Map<dynamic, dynamic>?;
+    final dynamic val = event.snapshot.value;
+    final Map<dynamic, dynamic>? data = val is Map ? (val as Map<dynamic, dynamic>) : null;
+    
     if (data == null) {
       yield [];
       continue;
     }
     
-    final assignments = data.entries.map((e) {
+    final assignments = data.entries.where((e) => e.value is Map).map((e) {
       final id = e.key.toString();
       final map = e.value as Map<dynamic, dynamic>;
-      return CleaningAssignment.fromMap(id, map);
+      return CleaningAssignment.fromMap(id, map, fallbackDate: dateStr);
     }).toList();
     
     yield assignments;
@@ -41,7 +42,9 @@ final allCleaningAssignmentsProvider = StreamProvider<List<CleaningAssignment>>(
   final stream = repo._db.child('cleaning_assignments').onValue;
   
   await for (final event in stream) {
-    final Map<dynamic, dynamic>? data = event.snapshot.value as Map<dynamic, dynamic>?;
+    final dynamic val = event.snapshot.value;
+    final Map<dynamic, dynamic>? data = val is Map ? (val as Map<dynamic, dynamic>) : null;
+    
     if (data == null) {
       yield [];
       continue;
@@ -51,16 +54,67 @@ final allCleaningAssignmentsProvider = StreamProvider<List<CleaningAssignment>>(
     final List<CleaningAssignment> allAssignments = [];
     
     for (var dateEntry in data.entries) {
-      final dateMap = dateEntry.value as Map<dynamic, dynamic>;
+      final dateValue = dateEntry.value;
+      if (dateValue is! Map) continue; // Skip non-map entries like metadata strings
+
+      final dateKey = dateEntry.key.toString();
+      final dateMap = dateValue as Map<dynamic, dynamic>;
       
       for (var assignmentEntry in dateMap.entries) {
+        final assignmentValue = assignmentEntry.value;
+        if (assignmentValue is! Map) continue; // Skip corrupted assignment nodes
+
         final id = assignmentEntry.key.toString();
-        final map = assignmentEntry.value as Map<dynamic, dynamic>;
-        allAssignments.add(CleaningAssignment.fromMap(id, map));
+        final map = assignmentValue as Map<dynamic, dynamic>;
+        allAssignments.add(CleaningAssignment.fromMap(id, map, fallbackDate: dateKey));
       }
     }
     
     yield allAssignments;
+  }
+});
+
+final dateRangeCleaningAssignmentsProvider = StreamProvider.family<List<CleaningAssignment>, (DateTime, DateTime)>((ref, range) async* {
+  final startDate = range.$1;
+  final endDate = range.$2;
+  final repo = ref.watch(cleaningRepositoryProvider);
+  
+  final startStr = defaultDateFormatter.format(startDate);
+  final endStr = defaultDateFormatter.format(endDate);
+
+  final stream = repo._db.child('cleaning_assignments').onValue;
+  
+  await for (final event in stream) {
+    final dynamic val = event.snapshot.value;
+    final Map<dynamic, dynamic>? data = val is Map ? (val as Map<dynamic, dynamic>) : null;
+    
+    if (data == null) {
+      yield [];
+      continue;
+    }
+    
+    final List<CleaningAssignment> matchingAssignments = [];
+
+    for (var dateEntry in data.entries) {
+      final dateValue = dateEntry.value;
+      if (dateValue is! Map) continue;
+
+      final dateKey = dateEntry.key.toString();
+      // Date structure is YYYY-MM-DD which is lexicographically sortable
+      if (dateKey.compareTo(startStr) >= 0 && dateKey.compareTo(endStr) <= 0) {
+        final dateMap = dateValue as Map<dynamic, dynamic>;
+        for (var assignmentEntry in dateMap.entries) {
+          final assignmentValue = assignmentEntry.value;
+          if (assignmentValue is! Map) continue;
+
+          final id = assignmentEntry.key.toString();
+          final map = assignmentValue as Map<dynamic, dynamic>;
+          matchingAssignments.add(CleaningAssignment.fromMap(id, map, fallbackDate: dateKey));
+        }
+      }
+    }
+    
+    yield matchingAssignments;
   }
 });
 

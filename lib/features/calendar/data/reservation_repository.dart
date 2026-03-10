@@ -38,6 +38,7 @@ class DailyReservations extends _$DailyReservations {
             
             String resolvedPropertyName = 'Missing Name';
             String resolvedPropertyAddress = 'Missing Address';
+            String? resolvedPropertyId;
             
             if (propertyOrderIdStr != null) {
               final int? targetOrder = int.tryParse(propertyOrderIdStr);
@@ -47,6 +48,7 @@ class DailyReservations extends _$DailyReservations {
                   final matchedProp = allProperties.firstWhere((p) => p.order == targetOrder);
                   resolvedPropertyName = matchedProp.name;
                   resolvedPropertyAddress = matchedProp.address;
+                  resolvedPropertyId = matchedProp.id;
                 } catch (_) {
                   // firstWhere throws StateError if no matching element is found
                 }
@@ -63,6 +65,7 @@ class DailyReservations extends _$DailyReservations {
                       id: '${key}_out',
                       guestName: guest,
                       propertyName: displayPropertyString,
+                      propertyId: resolvedPropertyId,
                       date: date,
                       type: ReservationEventType.checkOut,
                     )
@@ -76,6 +79,7 @@ class DailyReservations extends _$DailyReservations {
                       id: '${key}_in',
                       guestName: guest,
                       propertyName: displayPropertyString,
+                      propertyId: resolvedPropertyId,
                       date: date,
                       type: ReservationEventType.checkIn,
                     )
@@ -142,6 +146,7 @@ class DateRangeReservations extends _$DateRangeReservations {
             
             String resolvedPropertyName = 'Missing Name';
             String resolvedPropertyAddress = 'Missing Address';
+            String? resolvedPropertyId;
             
             if (propertyOrderIdStr != null) {
               final int? targetOrder = int.tryParse(propertyOrderIdStr);
@@ -150,6 +155,7 @@ class DateRangeReservations extends _$DateRangeReservations {
                   final matchedProp = allProperties.firstWhere((p) => p.order == targetOrder);
                   resolvedPropertyName = matchedProp.name;
                   resolvedPropertyAddress = matchedProp.address;
+                  resolvedPropertyId = matchedProp.id;
                 } catch (_) {}
               }
             }
@@ -171,6 +177,7 @@ class DateRangeReservations extends _$DateRangeReservations {
                           id: '${key}_out',
                           guestName: guest,
                           propertyName: displayPropertyString,
+                          propertyId: resolvedPropertyId,
                           date: mapKey,
                           type: ReservationEventType.checkOut,
                         )
@@ -193,6 +200,7 @@ class DateRangeReservations extends _$DateRangeReservations {
                           id: '${key}_in',
                           guestName: guest,
                           propertyName: displayPropertyString,
+                          propertyId: resolvedPropertyId,
                           date: mapKey,
                           type: ReservationEventType.checkIn,
                         )
@@ -220,6 +228,94 @@ class DateRangeReservations extends _$DateRangeReservations {
         yield dateMap;
       } catch (e) {
         throw 'Error parsing real-time updates: ${e.toString()}';
+      }
+    }
+  }
+}
+
+@riverpod
+class MonthlyTimeline extends _$MonthlyTimeline {
+  @override
+  Stream<Map<String, List<TimelineReservation>>> build(DateTime startDate, DateTime endDate) async* {
+    final ref = FirebaseDatabase.instance.ref('master_calendar');
+    final propRepo = PropertyRepository();
+
+    await for (final event in ref.onValue) {
+      try {
+        final Object? rawData = event.snapshot.value;
+        if (rawData == null) {
+          yield {};
+          continue;
+        }
+
+        final allProperties = await propRepo.fetchAll();
+        final Map<String, List<TimelineReservation>> propertyMap = {};
+
+        void processItem(String key, dynamic value) {
+          if (value is Map) {
+            final guest = value['guest'] as String?;
+            final checkout = value['checkOut'] as String?;
+            final checkin = value['checkIn'] as String?;
+            final propertyOrderIdStr = value['propertyId'] as String?;
+            
+            String resolvedPropertyName = 'Missing Name';
+            String resolvedPropertyAddress = 'Missing Address';
+            String? resolvedPropertyId;
+            
+            if (propertyOrderIdStr != null) {
+              final int? targetOrder = int.tryParse(propertyOrderIdStr);
+              if (targetOrder != null) {
+                try {
+                  final matchedProp = allProperties.firstWhere((p) => p.order == targetOrder);
+                  resolvedPropertyName = matchedProp.name;
+                  resolvedPropertyAddress = matchedProp.address;
+                  resolvedPropertyId = matchedProp.id;
+                } catch (_) {}
+              }
+            }
+
+            final displayPropertyString = '$resolvedPropertyName, $resolvedPropertyAddress';
+
+            if (guest != null && guest.isNotEmpty && guest.toLowerCase() != 'available') {
+              if (checkin != null && checkout != null) {
+                try {
+                  final start = DateTime.parse(checkin.substring(0, 10));
+                  final end = DateTime.parse(checkout.substring(0, 10));
+                  
+                  // Only include if it overlaps with our requested range
+                  if (start.isBefore(endDate) && end.isAfter(startDate)) {
+                    final reservation = TimelineReservation(
+                      id: key,
+                      guestName: guest,
+                      propertyName: displayPropertyString,
+                      propertyId: resolvedPropertyId,
+                      startDate: start,
+                      endDate: end,
+                    );
+                    
+                    propertyMap.putIfAbsent(displayPropertyString, () => []).add(reservation);
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        }
+
+        if (rawData is List) {
+          for (int i = 0; i < rawData.length; i++) {
+            if (rawData[i] != null) {
+              processItem(i.toString(), rawData[i]);
+            }
+          }
+        } else if (rawData is Map) {
+          rawData.forEach((key, value) {
+            processItem(key.toString(), value);
+          });
+        }
+
+        yield propertyMap;
+      } catch (e) {
+        throw 'Error parsing timeline: ${e.toString()}';
       }
     }
   }
