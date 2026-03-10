@@ -101,7 +101,14 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                           child: const Icon(Icons.business, color: AppColors.primary),
                         ),
                         title: Text(company.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                        subtitle: Text('Status: ${company.status.displayName} | Tier: ${company.tier.displayName}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Status: ${company.status.displayName} | Tier: ${company.tier.displayName}'),
+                            const SizedBox(height: 2),
+                            Text('ID: ${company.id}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                          ],
+                        ),
                         trailing: IconButton(
                           icon: const Icon(Icons.edit_outlined),
                           onPressed: () => _showEditCompanyDialog(context, ref, company),
