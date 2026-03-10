@@ -19,7 +19,7 @@ final dailyCleaningAssignmentsProvider = StreamProvider.family<List<CleaningAssi
   final isSuperAdmin = repo.activeCompanyId == null;
   final stream = isSuperAdmin 
       ? FirebaseDatabase.instance.ref('companies').onValue 
-      : repo._db.child('cleaning_assignments/$dateStr').onValue;
+      : repo._getDbForCompany(repo.activeCompanyId!).child('cleaning_assignments/$dateStr').onValue;
   
   await for (final event in stream) {
     if (!event.snapshot.exists) {
@@ -68,7 +68,7 @@ final allCleaningAssignmentsProvider = StreamProvider<List<CleaningAssignment>>(
   final isSuperAdmin = repo.activeCompanyId == null;
   final stream = isSuperAdmin
       ? FirebaseDatabase.instance.ref('companies').onValue
-      : repo._db.child('cleaning_assignments').onValue;
+      : repo._getDbForCompany(repo.activeCompanyId!).child('cleaning_assignments').onValue;
   
   await for (final event in stream) {
     final Object? rawData = event.snapshot.value;

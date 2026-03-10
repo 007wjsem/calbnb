@@ -89,6 +89,7 @@ class CleaningAssignment {
 
   CleaningAssignment copyWith({
     String? id,
+    String? companyId,
     String? reservationId,
     String? propertyId,
     String? cleanerId,
@@ -106,6 +107,7 @@ class CleaningAssignment {
   }) {
     return CleaningAssignment(
       id: id ?? this.id,
+      companyId: companyId ?? this.companyId,
       reservationId: reservationId ?? this.reservationId,
       propertyId: propertyId ?? this.propertyId,
       cleanerId: cleanerId ?? this.cleanerId,
