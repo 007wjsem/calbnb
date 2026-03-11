@@ -4,6 +4,7 @@ import '../data/auth_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/roles.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -55,6 +56,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -84,9 +88,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Image.asset('assets/images/logo.png', height: 88),
                   ),
                   const SizedBox(height: 28),
-                  const Text(
-                    'CalBNB',
-                    style: TextStyle(
+                  Text(
+                    l10n.appTitle,
+                    style: const TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
@@ -112,18 +116,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
-                          'Sign in to your account',
-                          style: TextStyle(
+                        Text(
+                          l10n.loginTitle,
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
                             color: AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Enter your credentials to continue',
-                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                        Text(
+                          l10n.loginSubtitle,
+                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                         ),
                         const SizedBox(height: 28),
                         if (_error != null) ...[
@@ -147,9 +151,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         TextField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Email Address',
-                            prefixIcon: Icon(Icons.email_outlined, size: 20),
+                          decoration: InputDecoration(
+                            labelText: l10n.emailHint,
+                            prefixIcon: const Icon(Icons.email_outlined, size: 20),
                           ),
                           onSubmitted: (_) => _login(),
                         ),
@@ -158,7 +162,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            labelText: 'Password',
+                            labelText: l10n.passwordHint,
                             prefixIcon: const Icon(Icons.lock_outline, size: 20),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -183,7 +187,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             child: _isLoading
                                 ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-                                : const Text('Sign In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+                                : Text(l10n.loginButton, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
                           ),
                         ),
                       ],
@@ -191,7 +195,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    '© ${DateTime.now().year} CalBNB',
+                    '© ${DateTime.now().year} ${l10n.appTitle}',
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
                   ),
                 ],

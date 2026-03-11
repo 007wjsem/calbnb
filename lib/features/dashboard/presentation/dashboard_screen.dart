@@ -9,7 +9,9 @@ import 'inspector_dashboard.dart';
 import '../../../core/constants/roles.dart';
 import '../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../company/presentation/company_switcher.dart';
+import '../../settings/presentation/locale_provider.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -35,16 +37,21 @@ class DashboardWrapper extends ConsumerWidget {
 
     final isDesktop = MediaQuery.of(context).size.width >= 800;
 
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('${user.role == AppRole.superAdmin ? 'System' : 'CalBNB'} - ${user.role.displayName} Dashboard'),
+        title: Text('${user.role == AppRole.superAdmin ? 'System' : l10n.appTitle} - ${user.role.displayName} Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
               ref.read(authControllerProvider.notifier).logout();
             },
-            tooltip: 'Logout',
+            tooltip: l10n.logoutButton,
           ),
         ],
       ),
@@ -80,6 +87,7 @@ class DashboardWrapper extends ConsumerWidget {
   }
   Widget _buildSidebar(BuildContext context, User user, {required bool isDesktop}) {
     final currentRoute = GoRouterState.of(context).matchedLocation;
+    final l10n = AppLocalizations.of(context)!;
     
     return Container(
       width: isDesktop ? 260 : null,
@@ -103,7 +111,7 @@ class DashboardWrapper extends ConsumerWidget {
                 ],
                 Expanded(
                   child: Text(
-                    user.role == AppRole.superAdmin ? 'System Administration' : 'CalBNB',
+                    user.role == AppRole.superAdmin ? 'System Administration' : l10n.appTitle,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -179,7 +187,7 @@ class DashboardWrapper extends ConsumerWidget {
           ],
           _SidebarItem(
             icon: Icons.calendar_today_rounded,
-            title: 'Calendar',
+            title: l10n.calendarTab,
             isSelected: currentRoute == '/' || currentRoute == '/calendar',
             onTap: () {
               if (!isDesktop) Navigator.pop(context);
@@ -247,7 +255,7 @@ class DashboardWrapper extends ConsumerWidget {
             ),
             _SidebarItem(
               icon: Icons.settings_rounded,
-              title: 'Settings',
+              title: l10n.settingsTab,
               isSelected: currentRoute == '/admin/settings',
               onTap: () {
                 if (!isDesktop) Navigator.pop(context);
@@ -277,7 +285,7 @@ class DashboardWrapper extends ConsumerWidget {
             if (user.role == AppRole.superAdmin) ...[
               _SidebarItem(
                 icon: Icons.business_center_rounded,
-                title: 'Companies',
+                title: l10n.companiesTab,
                 isSelected: currentRoute == '/admin/companies',
                 onTap: () {
                   if (!isDesktop) Navigator.pop(context);
@@ -304,6 +312,48 @@ class DashboardWrapper extends ConsumerWidget {
               },
             ),
           ],
+          
+          // Language Switcher (Bottom)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final locale = ref.watch(localeProvider);
+                final isSpanish = locale.languageCode == 'es';
+                
+                return InkWell(
+                  onTap: () {
+                    final newLocale = Locale(isSpanish ? 'en' : 'es');
+                    ref.read(localeProvider.notifier).setLocale(newLocale);
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.language, color: isSpanish ? AppColors.amber : Colors.white, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          isSpanish ? 'English (US)' : 'Español (ES)',
+                          style: TextStyle(
+                            color: isSpanish ? AppColors.amber : Colors.white,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
