@@ -78,33 +78,37 @@ class DailyReservations extends _$DailyReservations {
 
             final displayPropertyString = '$resolvedPropertyName, $resolvedPropertyAddress';
 
-            if (guest != null && guest.isNotEmpty && guest.toLowerCase() != 'available') {
-              // Check if the checkout date matches the requested date
-              if (checkout != null && checkout.startsWith(targetDateStr)) {
-                 matchingReservations.add(
-                    Reservation(
-                      id: '${key}_out',
-                      companyId: resolvedCompanyId,
-                      guestName: guest,
-                      propertyName: displayPropertyString,
-                      date: date,
-                      type: ReservationEventType.checkOut,
-                    )
-                 );
-              }
-              
-              // Check if the checkin date matches the requested date
-              if (checkin != null && checkin.startsWith(targetDateStr)) {
-                 matchingReservations.add(
-                    Reservation(
-                      id: '${key}_in',
-                      companyId: resolvedCompanyId,
-                      guestName: guest,
-                      propertyName: displayPropertyString,
-                      date: date,
-                      type: ReservationEventType.checkIn,
-                    )
-                 );
+            if (guest != null && guest.isNotEmpty) {
+              final guestLower = guest.toLowerCase();
+              // Filter out available and blocked dates (e.g., 'Airbnb (Not available)')
+              if (!guestLower.contains('available') && !guestLower.contains('not available')) {
+                // Check if the checkout date matches the requested date
+                if (checkout != null && checkout.startsWith(targetDateStr)) {
+                   matchingReservations.add(
+                      Reservation(
+                        id: '${key}_out',
+                        companyId: resolvedCompanyId,
+                        guestName: guest,
+                        propertyName: displayPropertyString,
+                        date: date,
+                        type: ReservationEventType.checkOut,
+                      )
+                   );
+                }
+                
+                // Check if the checkin date matches the requested date
+                if (checkin != null && checkin.startsWith(targetDateStr)) {
+                   matchingReservations.add(
+                      Reservation(
+                        id: '${key}_in',
+                        companyId: resolvedCompanyId,
+                        guestName: guest,
+                        propertyName: displayPropertyString,
+                        date: date,
+                        type: ReservationEventType.checkIn,
+                      )
+                   );
+                }
               }
             }
           }
