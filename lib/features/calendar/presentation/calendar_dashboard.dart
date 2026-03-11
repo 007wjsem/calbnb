@@ -8,6 +8,7 @@ import '../domain/cleaning_assignment.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../admin/presentation/user_management_screen.dart';
 import '../../../core/constants/roles.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CalendarDashboard extends ConsumerStatefulWidget {
   const CalendarDashboard({super.key});
@@ -267,6 +268,33 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                         setState(() => selectedCleanerId = val);
                       },
                     ),
+
+                    if (selectedCleanerId != null && existingAssignment != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            icon: const Icon(Icons.wechat_rounded, color: Colors.green),
+                            label: const Text('Message Cleaner on WhatsApp', style: TextStyle(color: Colors.green)),
+                            onPressed: () async {
+                              final cleaner = cleaners.firstWhere((c) => c.id == selectedCleanerId);
+                              if (cleaner.phone.isNotEmpty) {
+                                final message = 'Hello ${cleaner.username}! You have a cleaning assignment on ${defaultDateFormatter.format(date)} at ${reservation.propertyName}.';
+                                final whatsappUrl = Uri.parse("https://wa.me/${cleaner.phone}?text=${Uri.encodeComponent(message)}");
+                                if (await canLaunchUrl(whatsappUrl)) {
+                                  await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+                                } else {
+                                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp')));
+                                }
+                              } else {
+                                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This cleaner has no phone number on file.')));
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: selectedInspectorId,
