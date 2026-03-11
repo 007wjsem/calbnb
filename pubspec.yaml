@@ -57,6 +57,13 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   riverpod_generator: ^2.6.5
   build_runner: ^2.4.15
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/calbnb_mobile_logo.png"
+  remove_alpha_ios: true
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

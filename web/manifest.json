@@ -1,6 +1,6 @@
 {
-    "name": "All In 1 Home",
-    "short_name": "All In 1 Home",
+    "name": "CalBNB",
+    "short_name": "CalBNB",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
