@@ -1,56 +1,80 @@
 enum SubscriptionTier {
-  starter,
-  growth,
-  agency,
-  enterprise;
+  free,
+  bronze,
+  silver,
+  gold,
+  platinum,
+  diamond;
 
   String get value => name;
 
-  /// Flat monthly base price in USD. Enterprise is a one-time custom quote.
+  /// Flat monthly base price in USD.
   double get basePrice {
     switch (this) {
-      case SubscriptionTier.starter: return 29.0;
-      case SubscriptionTier.growth: return 99.0;
-      case SubscriptionTier.agency: return 249.0;
-      case SubscriptionTier.enterprise: return 0.0; // One-time custom quote
+      case SubscriptionTier.free: return 0.0;
+      case SubscriptionTier.bronze: return 9.99;
+      case SubscriptionTier.silver: return 29.99;
+      case SubscriptionTier.gold: return 69.99;
+      case SubscriptionTier.platinum: return 199.99;
+      case SubscriptionTier.diamond: return 299.99;
     }
   }
 
-  /// Number of properties included. Enterprise is unlimited.
+  /// Number of properties included.
   int? get includedProperties {
     switch (this) {
-      case SubscriptionTier.starter: return 5;
-      case SubscriptionTier.growth: return 20;
-      case SubscriptionTier.agency: return 50;
-      case SubscriptionTier.enterprise: return null; // Unlimited
+      case SubscriptionTier.free: return 2;
+      case SubscriptionTier.bronze: return 5;
+      case SubscriptionTier.silver: return 15;
+      case SubscriptionTier.gold: return 30;
+      case SubscriptionTier.platinum: return 60;
+      case SubscriptionTier.diamond: return 100;
     }
   }
 
-  /// USD per additional property beyond the included count. null = no overage.
+  /// USD per additional property beyond the included count. null = no overage allowed.
   double? get overageRate {
     switch (this) {
-      case SubscriptionTier.starter: return 5.0;
-      case SubscriptionTier.growth: return 4.0;
-      case SubscriptionTier.agency: return 3.0;
-      case SubscriptionTier.enterprise: return null;
+      case SubscriptionTier.free: return null;
+      case SubscriptionTier.bronze: return 2.0;
+      case SubscriptionTier.silver: return 1.50;
+      case SubscriptionTier.gold: return 1.25;
+      case SubscriptionTier.platinum: return 1.0;
+      case SubscriptionTier.diamond: return 0.75;
+    }
+  }
+
+  /// Max number of total users allowed in the company.
+  int get maxUsers {
+    switch (this) {
+      case SubscriptionTier.free: return 1;
+      case SubscriptionTier.bronze: return 4;
+      case SubscriptionTier.silver: return 10;
+      case SubscriptionTier.gold: return 18;
+      case SubscriptionTier.platinum: return 39;
+      case SubscriptionTier.diamond: return 106;
     }
   }
 
   String get displayName {
     switch (this) {
-      case SubscriptionTier.starter: return 'Starter';
-      case SubscriptionTier.growth: return 'Growth';
-      case SubscriptionTier.agency: return 'Agency';
-      case SubscriptionTier.enterprise: return 'Enterprise';
+      case SubscriptionTier.free: return 'Free';
+      case SubscriptionTier.bronze: return 'Bronze';
+      case SubscriptionTier.silver: return 'Silver';
+      case SubscriptionTier.gold: return 'Gold';
+      case SubscriptionTier.platinum: return 'Platinum';
+      case SubscriptionTier.diamond: return 'Diamond';
     }
   }
 
   static SubscriptionTier fromString(String? value) {
     switch (value) {
-      case 'growth': return SubscriptionTier.growth;
-      case 'agency': return SubscriptionTier.agency;
-      case 'enterprise': return SubscriptionTier.enterprise;
-      default: return SubscriptionTier.starter;
+      case 'bronze': return SubscriptionTier.bronze;
+      case 'silver': return SubscriptionTier.silver;
+      case 'gold': return SubscriptionTier.gold;
+      case 'platinum': return SubscriptionTier.platinum;
+      case 'diamond': return SubscriptionTier.diamond;
+      default: return SubscriptionTier.free;
     }
   }
 }

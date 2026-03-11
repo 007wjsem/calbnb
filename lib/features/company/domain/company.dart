@@ -33,15 +33,15 @@ class Company {
   double? get overageRate => tier.overageRate;
   bool get isActive => status == SubscriptionStatus.active || status == SubscriptionStatus.trialing;
 
-  /// Enterprise: true if support contract is currently active
+  /// Diamond: true if support contract is currently active
   bool get hasSupportActive =>
-      tier == SubscriptionTier.enterprise &&
+      tier == SubscriptionTier.diamond &&
       supportExpiresAt != null &&
       supportExpiresAt!.isAfter(DateTime.now());
 
-  /// Enterprise: true if company can access next major release for free
+  /// Diamond: true if company can access next major release for free
   bool get canAccessNextMajorRelease =>
-      tier == SubscriptionTier.enterprise &&
+      tier == SubscriptionTier.diamond &&
       (hasSupportActive || majorReleasesUsed < 2);
 
   Company copyWith({

@@ -240,7 +240,7 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                                     id: newCompanyId,
                                     name: compName,
                                     ownerUid: '', // Will be replaced/set properly later or via super admin logic
-                                    tier: SubscriptionTier.starter,
+                                    tier: SubscriptionTier.free,
                                     status: SubscriptionStatus.active,
                                     propertyCount: 0,
                                     createdAt: DateTime.now(),

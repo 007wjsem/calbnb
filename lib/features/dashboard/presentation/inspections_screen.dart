@@ -18,7 +18,7 @@ class InspectionsScreen extends StatelessWidget {
         ),
       ),
       body: const SubscriptionGuard(
-        requiredTier: SubscriptionTier.growth,
+        requiredTier: SubscriptionTier.gold,
         child: InspectorDashboard(),
       ),
     );
