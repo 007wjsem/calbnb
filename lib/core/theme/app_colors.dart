@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// All In 1 Home — Brand Palette
+/// CalBNB — Brand Palette
 /// Inspired by the logo: deep ocean blue, warm golden sun, sky teal, clean white.
 class AppColors {
   AppColors._();

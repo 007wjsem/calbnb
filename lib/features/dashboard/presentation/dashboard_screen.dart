@@ -37,7 +37,7 @@ class DashboardWrapper extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${user.role == AppRole.superAdmin ? 'System' : 'All In 1 Home'} - ${user.role.displayName} Dashboard'),
+        title: Text('${user.role == AppRole.superAdmin ? 'System' : 'CalBNB'} - ${user.role.displayName} Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -103,7 +103,7 @@ class DashboardWrapper extends ConsumerWidget {
                 ],
                 Expanded(
                   child: Text(
-                    user.role == AppRole.superAdmin ? 'System Administration' : 'All In 1 Home',
+                    user.role == AppRole.superAdmin ? 'System Administration' : 'CalBNB',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,

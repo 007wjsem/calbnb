@@ -85,21 +85,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 28),
                   const Text(
-                    'All In 1 Home',
+                    'CalBNB',
                     style: TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                       letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Services of Florida',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withValues(alpha: 0.7),
-                      letterSpacing: 1.5,
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -200,7 +191,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    '© ${DateTime.now().year} All In 1 Home Services of Florida',
+                    '© ${DateTime.now().year} CalBNB',
                     style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 11),
                   ),
                 ],

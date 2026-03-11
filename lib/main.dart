@@ -21,7 +21,7 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'All In 1 Home',
+      title: 'CalBNB',
       theme: ThemeData(
         useMaterial3: true,
         fontFamily: 'Inter',
