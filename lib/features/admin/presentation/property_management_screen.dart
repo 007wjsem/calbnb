@@ -293,6 +293,8 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     final garagePinController = TextEditingController(text: existingProperty?.garagePin ?? '');
     final cleaningInstructionsController = TextEditingController(text: existingProperty?.cleaningInstructions ?? '');
     List<String> instructionPhotos = List.from(existingProperty?.instructionPhotos ?? []);
+    List<String> checklists = List.from(existingProperty?.checklists ?? []);
+    final newChecklistCtrl = TextEditingController();
     final ImagePicker picker = ImagePicker();
     
     String selectedType = existingProperty?.propertyType == 'Apartment' || existingProperty?.propertyType == 'Other' 
@@ -548,6 +550,79 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                       decoration: const InputDecoration(labelText: 'Cleaning Instructions', alignLabelWithHint: true, prefixIcon: Icon(Icons.cleaning_services_outlined)),
                     ),
                     const SizedBox(height: 16),
+                    
+                    // --- Checklists section ---
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Custom Cleaning Checklists', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: newChecklistCtrl,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Add a new mandatory checklist item...',
+                                    prefixIcon: Icon(Icons.check_box_outline_blank, size: 18),
+                                  ),
+                                  onSubmitted: (val) {
+                                    if (val.trim().isNotEmpty) {
+                                      setState(() {
+                                        checklists.add(val.trim());
+                                        newChecklistCtrl.clear();
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle, color: AppColors.primary),
+                                tooltip: 'Add Checklist Item',
+                                onPressed: () {
+                                  if (newChecklistCtrl.text.trim().isNotEmpty) {
+                                    setState(() {
+                                      checklists.add(newChecklistCtrl.text.trim());
+                                      newChecklistCtrl.clear();
+                                    });
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                          if (checklists.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: checklists.length,
+                              itemBuilder: (ctx, idx) {
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+                                  title: Text(checklists[idx], style: const TextStyle(fontSize: 13)),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                    onPressed: () {
+                                      setState(() => checklists.removeAt(idx));
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     Align(
                       alignment: Alignment.centerLeft,
                       child: ElevatedButton.icon(
@@ -690,6 +765,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                               order: isEditing ? existingProperty!.order : -1,
                               cleaningInstructions: cleaningInstructionsController.text.trim(),
                               instructionPhotos: instructionPhotos,
+                              checklists: checklists,
                             );
 
                             if (isEditing) {
@@ -771,6 +847,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                                         order: isEditing ? existingProperty!.order : -1,
                                         cleaningInstructions: cleaningInstructionsController.text.trim(),
                                         instructionPhotos: instructionPhotos,
+                                        checklists: checklists,
                                       );
 
                                       if (isEditing) {

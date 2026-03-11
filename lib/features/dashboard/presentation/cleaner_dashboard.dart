@@ -47,6 +47,88 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
     return "$hours:$minutes:$seconds";
   }
 
+  void _showChecklistDialog(CleaningAssignment assignment, Property? property) {
+    if (property == null || property.checklists.isEmpty) {
+      _updateStatus(assignment, CleaningStatus.pendingInspection, endTimer: true);
+      return;
+    }
+
+    final Map<int, bool> checkedState = { for (var i = 0; i < property.checklists.length; i++) i: false };
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            final allChecked = checkedState.values.every((v) => v);
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.playlist_add_check, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  const Text('Required Checklist'),
+                ],
+              ),
+              content: SizedBox(
+                width: 400,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('Please verify the following tasks have been completed before finishing this job.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                    const SizedBox(height: 16),
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: property.checklists.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final item = property.checklists[index];
+                          return CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text(item, style: TextStyle(fontSize: 14, decoration: checkedState[index]! ? TextDecoration.lineThrough : null)),
+                            value: checkedState[index],
+                            activeColor: AppColors.primary,
+                            onChanged: (val) {
+                              setState(() {
+                                checkedState[index] = val ?? false;
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                ),
+                FilledButton.icon(
+                  onPressed: allChecked ? () {
+                    Navigator.pop(context);
+                    _updateStatus(assignment, CleaningStatus.pendingInspection, endTimer: true);
+                  } : null,
+                  icon: const Icon(Icons.check_circle_outline, size: 18),
+                  label: const Text('Complete Job'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final assignmentsAsync = ref.watch(allCleaningAssignmentsProvider);
@@ -293,7 +375,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                 Expanded(
                   flex: 1,
                   child: ElevatedButton.icon(
-                    onPressed: () => _updateStatus(assignment, CleaningStatus.pendingInspection, endTimer: true),
+                    onPressed: () => _showChecklistDialog(assignment, property),
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text('Finish Job'),
                     style: ElevatedButton.styleFrom(

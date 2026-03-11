@@ -20,6 +20,7 @@ class Property {
   final int order; // New field to store sorting position
   final String cleaningInstructions;
   final List<String> instructionPhotos; // Base64 encoded
+  final List<String> checklists;
 
   Property({
     required this.id,
@@ -43,6 +44,7 @@ class Property {
     this.order = 0, // Default to 0
     this.cleaningInstructions = '',
     this.instructionPhotos = const [],
+    this.checklists = const [],
   });
 
   Property copyWith({
@@ -67,6 +69,7 @@ class Property {
     int? order,
     String? cleaningInstructions,
     List<String>? instructionPhotos,
+    List<String>? checklists,
   }) {
     return Property(
       id: id ?? this.id,
@@ -90,6 +93,7 @@ class Property {
       order: order ?? this.order,
       cleaningInstructions: cleaningInstructions ?? this.cleaningInstructions,
       instructionPhotos: instructionPhotos ?? this.instructionPhotos,
+      checklists: checklists ?? this.checklists,
     );
   }
 }

@@ -46,6 +46,7 @@ class PropertyRepository {
           order: (value['order'] as num?)?.toInt() ?? 0,
           cleaningInstructions: value['cleaningInstructions']?.toString() ?? '',
           instructionPhotos: (value['instructionPhotos'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+          checklists: (value['checklists'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
         ));
       }
     }
@@ -111,6 +112,7 @@ class PropertyRepository {
       'order': property.order,
       'cleaningInstructions': property.cleaningInstructions,
       'instructionPhotos': property.instructionPhotos,
+      'checklists': property.checklists,
     });
   }
 
@@ -140,6 +142,7 @@ class PropertyRepository {
       'order': property.order,
       'cleaningInstructions': property.cleaningInstructions,
       'instructionPhotos': property.instructionPhotos,
+      'checklists': property.checklists,
     });
   }
 
