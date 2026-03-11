@@ -45,6 +45,7 @@ class Company {
       (hasSupportActive || majorReleasesUsed < 2);
 
   Company copyWith({
+    String? id,
     String? name,
     SubscriptionTier? tier,
     SubscriptionStatus? status,
@@ -55,7 +56,7 @@ class Company {
     int? majorReleasesUsed,
   }) {
     return Company(
-      id: id,
+      id: id ?? this.id,
       name: name ?? this.name,
       ownerUid: ownerUid,
       tier: tier ?? this.tier,

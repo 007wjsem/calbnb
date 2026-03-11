@@ -279,7 +279,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                             label: const Text('Message Cleaner on WhatsApp', style: TextStyle(color: Colors.green)),
                             onPressed: () async {
                               final cleaner = cleaners.firstWhere((c) => c.id == selectedCleanerId);
-                              if (cleaner.phone.isNotEmpty) {
+                              if (cleaner.phone?.isNotEmpty ?? false) {
                                 final message = 'Hello ${cleaner.username}! You have a cleaning assignment on ${defaultDateFormatter.format(date)} at ${reservation.propertyName}.';
                                 final whatsappUrl = Uri.parse("https://wa.me/${cleaner.phone}?text=${Uri.encodeComponent(message)}");
                                 if (await canLaunchUrl(whatsappUrl)) {
