@@ -85,7 +85,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     final companyAsync = activeCompanyId != null ? ref.watch(companyProvider(activeCompanyId)) : const AsyncValue.loading();
     final company = companyAsync.valueOrNull;
     
-    final bool canAddProperty = isSuperAdmin || (company != null && _allProperties.length < company.tier.maxProperties);
+    final bool canAddProperty = isSuperAdmin || (company != null && (company.tier.includedProperties == null || _allProperties.length < company.tier.includedProperties!));
 
     final filtered = _filtered;
     final cities = _cities;
@@ -114,7 +114,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
       floatingActionButton: FloatingActionButton.extended(
         onPressed: canAddProperty 
             ? () => _showPropertyDialog(context, ref, repo)
-            : () => _showLimitDialog(context, company?.tier.maxProperties ?? 3),
+            : () => _showLimitDialog(context, company?.tier.includedProperties ?? 5),
         backgroundColor: canAddProperty ? AppColors.primary : Colors.grey.shade600,
         foregroundColor: Colors.white,
         icon: Icon(canAddProperty ? Icons.add_home_outlined : Icons.lock_outline),

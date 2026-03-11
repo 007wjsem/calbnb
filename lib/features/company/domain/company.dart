@@ -10,27 +10,69 @@ class Company {
   final String? stripeSubscriptionId;
   final int propertyCount;
   final DateTime createdAt;
-  final DateTime? supportExpiresAt;
-  final int majorReleasesUsed;
 
-  Company({
+  // Tier 4 Enterprise-specific fields
+  final DateTime? supportExpiresAt;   // When dedicated support period ends
+  final int majorReleasesUsed;        // Releases claimed without active support (max 2)
+
+  const Company({
     required this.id,
     required this.name,
     required this.ownerUid,
     required this.tier,
     required this.status,
+    required this.propertyCount,
+    required this.createdAt,
     this.stripeCustomerId,
     this.stripeSubscriptionId,
-    this.propertyCount = 0,
-    required this.createdAt,
     this.supportExpiresAt,
     this.majorReleasesUsed = 0,
   });
 
+  int? get includedProperties => tier.includedProperties;
+  double? get overageRate => tier.overageRate;
+  bool get isActive => status == SubscriptionStatus.active || status == SubscriptionStatus.trialing;
+
+  /// Enterprise: true if support contract is currently active
+  bool get hasSupportActive =>
+      tier == SubscriptionTier.enterprise &&
+      supportExpiresAt != null &&
+      supportExpiresAt!.isAfter(DateTime.now());
+
+  /// Enterprise: true if company can access next major release for free
+  bool get canAccessNextMajorRelease =>
+      tier == SubscriptionTier.enterprise &&
+      (hasSupportActive || majorReleasesUsed < 2);
+
+  Company copyWith({
+    String? name,
+    SubscriptionTier? tier,
+    SubscriptionStatus? status,
+    String? stripeCustomerId,
+    String? stripeSubscriptionId,
+    int? propertyCount,
+    DateTime? supportExpiresAt,
+    int? majorReleasesUsed,
+  }) {
+    return Company(
+      id: id,
+      name: name ?? this.name,
+      ownerUid: ownerUid,
+      tier: tier ?? this.tier,
+      status: status ?? this.status,
+      stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
+      stripeSubscriptionId: stripeSubscriptionId ?? this.stripeSubscriptionId,
+      propertyCount: propertyCount ?? this.propertyCount,
+      createdAt: createdAt,
+      supportExpiresAt: supportExpiresAt ?? this.supportExpiresAt,
+      majorReleasesUsed: majorReleasesUsed ?? this.majorReleasesUsed,
+    );
+  }
+
   factory Company.fromMap(String id, Map<dynamic, dynamic> map) {
     return Company(
       id: id,
-      name: map['name']?.toString() ?? 'Unknown Company',
+      name: map['name']?.toString() ?? '',
       ownerUid: map['ownerUid']?.toString() ?? '',
       tier: SubscriptionTier.fromString(map['subscriptionTier']?.toString()),
       status: SubscriptionStatus.fromString(map['subscriptionStatus']?.toString()),
@@ -60,33 +102,5 @@ class Company {
       'supportExpiresAt': supportExpiresAt?.millisecondsSinceEpoch,
       'majorReleasesUsed': majorReleasesUsed,
     };
-  }
-
-  Company copyWith({
-    String? id,
-    String? name,
-    String? ownerUid,
-    SubscriptionTier? tier,
-    SubscriptionStatus? status,
-    String? stripeCustomerId,
-    String? stripeSubscriptionId,
-    int? propertyCount,
-    DateTime? createdAt,
-    DateTime? supportExpiresAt,
-    int? majorReleasesUsed,
-  }) {
-    return Company(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      ownerUid: ownerUid ?? this.ownerUid,
-      tier: tier ?? this.tier,
-      status: status ?? this.status,
-      stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
-      stripeSubscriptionId: stripeSubscriptionId ?? this.stripeSubscriptionId,
-      propertyCount: propertyCount ?? this.propertyCount,
-      createdAt: createdAt ?? this.createdAt,
-      supportExpiresAt: supportExpiresAt ?? this.supportExpiresAt,
-      majorReleasesUsed: majorReleasesUsed ?? this.majorReleasesUsed,
-    );
   }
 }

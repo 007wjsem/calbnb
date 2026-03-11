@@ -1,6 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/company.dart';
+import '../domain/subscription.dart';
 
 class CompanyRepository {
   final FirebaseDatabase _db = FirebaseDatabase.instance;
@@ -33,6 +33,29 @@ class CompanyRepository {
 
   Future<void> updateCompany(Company company) async {
     await _db.ref('companies/${company.id}').update(company.toMap());
+  }
+
+  /// Update subscription tier and status
+  Future<void> updateSubscription({
+    required String companyId,
+    SubscriptionTier? tier,
+    SubscriptionStatus? status,
+    String? stripeCustomerId,
+    String? stripeSubscriptionId,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (tier != null) updates['subscriptionTier'] = tier.value;
+    if (status != null) updates['subscriptionStatus'] = status.value;
+    if (stripeCustomerId != null) updates['stripeCustomerId'] = stripeCustomerId;
+    if (stripeSubscriptionId != null) updates['stripeSubscriptionId'] = stripeSubscriptionId;
+    await _db.ref('companies/$companyId').update(updates);
+  }
+
+  /// Increment or decrement the active property count.
+  Future<void> updatePropertyCount(String companyId, int delta) async {
+    final snapshot = await _db.ref('companies/$companyId/propertyCount').get();
+    final current = (snapshot.value as num?)?.toInt() ?? 0;
+    await _db.ref('companies/$companyId/propertyCount').set(current + delta);
   }
 }
 

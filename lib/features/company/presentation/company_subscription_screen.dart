@@ -83,13 +83,13 @@ class CompanySubscriptionScreen extends ConsumerWidget {
                       _buildUsageBar(
                         label: 'Properties',
                         used: company.propertyCount,
-                        max: tier.maxProperties,
+                        max: tier.includedProperties,
                       ),
                       const SizedBox(height: 12),
                       _buildUsageBar(
                         label: 'Major App Updates',
                         used: company.majorReleasesUsed,
-                        max: tier == SubscriptionTier.starter ? 0 : 9999, // Concept limit
+                        max: tier == SubscriptionTier.starter ? 0 : null,
                       ),
                       const SizedBox(height: 32),
                       const Divider(),
@@ -116,7 +116,7 @@ class CompanySubscriptionScreen extends ConsumerWidget {
                 title: 'Pro',
                 price: '\$149/mo',
                 features: ['Up to 20 Properties', 'Inspector App Access', 'Cleaner App \u0026 Payroll Calculation', 'Priority Support'],
-                isCurrent: tier == SubscriptionTier.pro,
+                isCurrent: tier == SubscriptionTier.growth,
                 isRecommended: true,
               ),
               const SizedBox(height: 12),
@@ -135,9 +135,9 @@ class CompanySubscriptionScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildUsageBar({required String label, required int used, required int max}) {
-    final double percent = max > 0 ? (used / max).clamp(0.0, 1.0) : 1.0;
-    final bool isNearLimit = percent > 0.8;
+  Widget _buildUsageBar({required String label, required int used, required int? max}) {
+    final double percent = (max != null && max > 0) ? (used / max).clamp(0.0, 1.0) : 0.0;
+    final bool isNearLimit = max != null && percent > 0.8;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -147,7 +147,7 @@ class CompanySubscriptionScreen extends ConsumerWidget {
           children: [
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             Text(
-              max >= 9999 ? '$used / Unlimited' : '$used / $max',
+              max == null ? '$used / Unlimited' : '$used / $max',
               style: TextStyle(fontWeight: FontWeight.bold, color: isNearLimit ? Colors.orange.shade800 : Colors.grey.shade700),
             )
           ],

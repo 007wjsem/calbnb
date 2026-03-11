@@ -242,6 +242,7 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                                     ownerUid: '', // Will be replaced/set properly later or via super admin logic
                                     tier: SubscriptionTier.starter,
                                     status: SubscriptionStatus.active,
+                                    propertyCount: 0,
                                     createdAt: DateTime.now(),
                                   );
 

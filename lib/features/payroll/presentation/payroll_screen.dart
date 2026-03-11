@@ -42,7 +42,7 @@ class _PayrollScreenState extends ConsumerState<PayrollScreen> {
         ),
       ),
       body: SubscriptionGuard(
-        requiredTier: SubscriptionTier.pro,
+        requiredTier: SubscriptionTier.growth,
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
