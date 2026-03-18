@@ -45,7 +45,7 @@ We do not sell your personal information to third parties. We only share informa
 ## 5. Your Rights
 You have the right to:
 *   Access the personal information we hold about you.
-*   Request the correction or deletion of your data.
+*   Request the correction or deletion of your data through our [Data Deletion Request](https://github.com/007wjsem/calbnb/blob/main/DATA_DELETION.md) policy.
 *   Opt-out of analytics tracking (via device settings).
 
 To exercise these rights, please contact us at info.calbnb@gmail.com
