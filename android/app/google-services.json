@@ -8,6 +8,42 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:941286930069:android:0114eba79694c1bd43cd9c",
+        "android_client_info": {
+          "package_name": "com.calbnb"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "941286930069-op42vq04f5tgq8hmlcg27t09n528ciup.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD79YfgF2ru5Mqne5w5Gq9z2JINt0ORd_E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "941286930069-op42vq04f5tgq8hmlcg27t09n528ciup.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "941286930069-k85cl5qtql6ecf2bnc6dcae14gfjsafa.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.calbnb.app.calbnb"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:941286930069:android:8b082501c4a61eb943cd9c",
         "android_client_info": {
           "package_name": "com.calbnb.app.calbnb"
@@ -30,6 +66,13 @@
             {
               "client_id": "941286930069-op42vq04f5tgq8hmlcg27t09n528ciup.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "941286930069-k85cl5qtql6ecf2bnc6dcae14gfjsafa.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.calbnb.app.calbnb"
+              }
             }
           ]
         }

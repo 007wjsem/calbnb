@@ -3,7 +3,8 @@ enum AppRole {
   administrator('Administrator'),
   manager('Manager'),
   cleaner('Cleaner'),
-  inspector('Inspector');
+  inspector('Inspector'),
+  owner('Property Owner');
 
   final String displayName;
   const AppRole(this.displayName);

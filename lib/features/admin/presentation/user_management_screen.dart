@@ -5,6 +5,9 @@ import '../../admin/data/user_repository.dart';
 import '../../auth/domain/user.dart';
 import '../../../core/constants/roles.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../auth/data/auth_repository.dart';
+import '../../company/data/company_repository.dart';
+import 'package:calbnb/l10n/app_localizations.dart';
 
 final userRepositoryProvider = Provider((ref) => UserRepository());
 
@@ -63,23 +66,48 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
   Widget build(BuildContext context) {
     final repo = ref.watch(userRepositoryProvider);
     final filtered = _filtered;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Users'),
+        title: Text(l10n.usersTitle),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/')),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showUserDialog(context, ref, repo),
+        onPressed: () {
+          // ─ User cap enforcement ─
+          final currentUser = ref.read(authControllerProvider);
+          final companyId = currentUser?.activeCompanyId;
+          if (companyId != null && companyId.isNotEmpty) {
+            final company = ref.read(companyProvider(companyId)).valueOrNull;
+            if (company != null) {
+              final maxUsers = company.tier.maxUsers;
+              // Count non-superAdmin users
+              final currentCount = _allUsers.where((u) => u.role != AppRole.superAdmin).length;
+              if (currentCount >= maxUsers) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${l10n.userLimitReachedPrefix} ($currentCount/$maxUsers). ${l10n.userLimitReachedSuffix.replaceFirst('plan', '${company.tier.displayName} plan')}'),
+                    backgroundColor: AppColors.error,
+                    duration: const Duration(seconds: 4),
+                    action: SnackBarAction(label: l10n.upgradeAction, textColor: Colors.white, onPressed: () => context.go('/billing')),
+                  ),
+                );
+                return;
+              }
+            }
+          }
+          _showUserDialog(context, ref, repo);
+        },
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         icon: const Icon(Icons.person_add_outlined),
-        label: const Text('Add User'),
+        label: Text(l10n.addUserAction),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text('Error: $_error'))
+              ? Center(child: Text('${l10n.errorOccurred} $_error'))
               : Column(
                   children: [
                     // ── Search + Filter header ────────────────────────────
@@ -93,7 +121,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                           TextField(
                             controller: _searchCtrl,
                             decoration: InputDecoration(
-                              hintText: 'Search by name, email or phone…',
+                              hintText: l10n.searchUsersHint,
                               prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
                               suffixIcon: _query.isNotEmpty
                                   ? IconButton(
@@ -117,7 +145,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                             child: Row(
                               children: [
                                 _FilterChip(
-                                  label: 'All Roles',
+                                  label: l10n.allRolesFilter,
                                   selected: _roleFilter == null,
                                   onSelected: (_) => setState(() => _roleFilter = null),
                                 ),
@@ -137,7 +165,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                           Padding(
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Text(
-                              '${filtered.length} of ${_allUsers.length} users',
+                              '${filtered.length} ${l10n.ofKeyword} ${_allUsers.length} ${l10n.usersKeyword}',
                               style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                             ),
                           ),
@@ -150,10 +178,10 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                       child: filtered.isEmpty
                           ? _EmptyState(
                               icon: Icons.person_search_outlined,
-                              title: 'No users found',
+                              title: l10n.noUsersFound,
                               subtitle: _query.isNotEmpty || _roleFilter != null
-                                  ? 'Try a different search or filter'
-                                  : 'Add your first user above',
+                                  ? l10n.tryDifferentSearch
+                                  : l10n.addFirstUserAbove,
                             )
                           : ListView.separated(
                               padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
@@ -169,14 +197,14 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                                       context: context,
                                       builder: (ctx) => AlertDialog(
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                        title: const Text('Delete User'),
-                                        content: Text('Delete ${user.username}? This action cannot be undone.'),
+                                        title: Text(l10n.deleteUserTitle),
+                                        content: Text('${l10n.deletePromptPrefix} ${user.username}${l10n.deletePromptSuffix}'),
                                         actions: [
-                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancelAction)),
                                           FilledButton(
                                             onPressed: () => Navigator.pop(ctx, true),
                                             style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-                                            child: const Text('Delete'),
+                                            child: Text(l10n.deleteAction),
                                           ),
                                         ],
                                       ),
@@ -206,6 +234,8 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
     final payRateCtrl = TextEditingController(text: existingUser?.payRate?.toString() ?? '');
     AppRole selectedRole = existingUser?.role ?? AppRole.cleaner;
 
+    final l10n = AppLocalizations.of(context)!;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -220,34 +250,34 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    isEditing ? 'Edit User' : 'Create New User',
+                    isEditing ? l10n.editUserTitle : l10n.createNewUserTitle,
                     style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    isEditing ? 'Update role or contact details.' : 'Register a new user in the system.',
+                    isEditing ? l10n.updateRoleDetails : l10n.registerNewUser,
                     style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                   ),
                   const SizedBox(height: 24),
-                  TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)), readOnly: isEditing),
+                  TextField(controller: emailCtrl, decoration: InputDecoration(labelText: l10n.emailAddressLabel, prefixIcon: const Icon(Icons.email_outlined)), readOnly: isEditing),
                   const SizedBox(height: 14),
                   if (!isEditing) ...[
-                    TextField(controller: passwordCtrl, decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline)), obscureText: true),
+                    TextField(controller: passwordCtrl, decoration: InputDecoration(labelText: l10n.passwordLabel, prefixIcon: const Icon(Icons.lock_outline)), obscureText: true),
                     const SizedBox(height: 14),
                   ],
-                  TextField(controller: usernameCtrl, decoration: const InputDecoration(labelText: 'Display Name', prefixIcon: Icon(Icons.person_outline))),
+                  TextField(controller: usernameCtrl, decoration: InputDecoration(labelText: l10n.displayNameLabel, prefixIcon: const Icon(Icons.person_outline))),
                   const SizedBox(height: 14),
-                  TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone_outlined)), keyboardType: TextInputType.phone),
+                  TextField(controller: phoneCtrl, decoration: InputDecoration(labelText: l10n.phoneNumber, prefixIcon: const Icon(Icons.phone_outlined)), keyboardType: TextInputType.phone),
                   const SizedBox(height: 14),
-                  TextField(controller: addressCtrl, decoration: const InputDecoration(labelText: 'Address', prefixIcon: Icon(Icons.home_outlined))),
+                  TextField(controller: addressCtrl, decoration: InputDecoration(labelText: l10n.address, prefixIcon: const Icon(Icons.home_outlined))),
                   const SizedBox(height: 14),
-                  TextField(controller: emergencyCtrl, decoration: const InputDecoration(labelText: 'Emergency Contact', prefixIcon: Icon(Icons.health_and_safety_outlined))),
+                  TextField(controller: emergencyCtrl, decoration: InputDecoration(labelText: l10n.emergencyContact, prefixIcon: const Icon(Icons.health_and_safety_outlined))),
                   const SizedBox(height: 14),
-                  TextField(controller: payRateCtrl, decoration: const InputDecoration(labelText: 'Pay Rate', prefixIcon: Icon(Icons.attach_money_outlined)), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                  TextField(controller: payRateCtrl, decoration: InputDecoration(labelText: l10n.payRateLabel, prefixIcon: const Icon(Icons.attach_money_outlined)), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<AppRole>(
                     value: selectedRole,
-                    decoration: const InputDecoration(labelText: 'Role', prefixIcon: Icon(Icons.manage_accounts_outlined)),
+                    decoration: InputDecoration(labelText: l10n.roleLabel, prefixIcon: const Icon(Icons.manage_accounts_outlined)),
                     items: AppRole.values.map((r) => DropdownMenuItem(value: r, child: Text(r.displayName))).toList(),
                     onChanged: (v) { if (v != null) setDialogState(() => selectedRole = v); },
                   ),
@@ -255,7 +285,7 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancelAction)),
                       const SizedBox(width: 12),
                       FilledButton(
                         onPressed: () async {
@@ -292,11 +322,11 @@ class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
                             }
                           } catch (e) {
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error));
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l10n.errorOccurred} $e'), backgroundColor: AppColors.error));
                             }
                           }
                         },
-                        child: Text(isEditing ? 'Save Changes' : 'Create User'),
+                        child: Text(isEditing ? l10n.saveChanges : l10n.createUserAction),
                       ),
                     ],
                   ),
@@ -324,6 +354,7 @@ class _UserCard extends StatelessWidget {
       case AppRole.manager: return AppColors.teal;
       case AppRole.cleaner: return AppColors.green;
       case AppRole.inspector: return AppColors.amber;
+      case AppRole.owner: return const Color(0xFF0EA5E9);
     }
   }
 

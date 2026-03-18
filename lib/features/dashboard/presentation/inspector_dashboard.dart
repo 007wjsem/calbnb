@@ -6,6 +6,7 @@ import '../../auth/data/auth_repository.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import 'package:calbnb/l10n/app_localizations.dart';
 
 class InspectorDashboard extends ConsumerStatefulWidget {
   const InspectorDashboard({super.key});
@@ -33,7 +34,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
             runSpacing: 8,
             children: [
               Text(
-                'Pending Inspections',
+                AppLocalizations.of(context)!.pendingInspectionsTitle,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
             ],
@@ -59,7 +60,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                 });
 
                 if (myInspections.isEmpty) {
-                  return const Center(child: Text('No pending inspections.'));
+                  return Center(child: Text(AppLocalizations.of(context)!.noPendingInspectionsDesc));
                 }
 
                 return ListView.builder(
@@ -70,7 +71,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(child: Text('Error: $error')),
+              error: (Object error, StackTrace stack) => Center(child: Text(AppLocalizations.of(context)!.genericError(error.toString()))),
             ),
           )
         ],
@@ -84,13 +85,13 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
     switch(assignment.status) {
       case CleaningStatus.assigned:
       case CleaningStatus.inProgress:
-        statusColor = Colors.blueGrey; statusText = 'Waiting for Cleaner...'; break;
+        statusColor = Colors.blueGrey; statusText = AppLocalizations.of(context)!.statusWaitingForCleaner; break;
       case CleaningStatus.pendingInspection:
-        statusColor = Colors.orange; statusText = 'Ready for Inspection'; break;
+        statusColor = Colors.orange; statusText = AppLocalizations.of(context)!.statusReadyForInspection; break;
       case CleaningStatus.fixNeeded:
-        statusColor = Colors.red; statusText = 'Cleaner is fixing issues...'; break;
+        statusColor = Colors.red; statusText = AppLocalizations.of(context)!.statusCleanerFixingIssues; break;
       case CleaningStatus.approved:
-        statusColor = Colors.green; statusText = 'Approved'; break;
+        statusColor = Colors.green; statusText = AppLocalizations.of(context)!.statusApproved; break;
     }
 
     return Card(
@@ -116,7 +117,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                         children: [
                           const Icon(Icons.event_available_outlined, size: 14, color: Colors.blueGrey),
                           const SizedBox(width: 4),
-                          Text('Checkout: ${DateFormat.yMMMd().format(DateTime.parse(assignment.date))}', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                          Text(AppLocalizations.of(context)!.checkoutDateLabel(DateFormat.yMMMd(Localizations.localeOf(context).languageCode).format(DateTime.parse(assignment.date))), style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
                         ]
                       ),
                       const SizedBox(height: 2),
@@ -124,7 +125,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                         children: [
                           const Icon(Icons.assignment_turned_in_outlined, size: 14, color: Colors.blueGrey),
                           const SizedBox(width: 4),
-                          Text('Assigned: ${DateFormat.yMMMd().add_jm().format(DateTime.parse(assignment.assignedAt))}', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                          Text(AppLocalizations.of(context)!.assignedDateLabel(DateFormat.yMMMd(Localizations.localeOf(context).languageCode).add_jm().format(DateTime.parse(assignment.assignedAt))), style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
                         ]
                       ),
                     ],
@@ -144,10 +145,33 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
               ],
             ),
             const SizedBox(height: 8),
-            Text('Cleaner: ${assignment.cleanerName}', style: const TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+            Text(AppLocalizations.of(context)!.cleanerLabel(assignment.cleanerName), style: const TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w600)),
             if (assignment.endTime.isNotEmpty)
-              Text('Finished at: ${DateFormat.jm().format(DateTime.parse(assignment.endTime))}', style: const TextStyle(color: Colors.blueGrey, fontSize: 12)),
+              Text(AppLocalizations.of(context)!.finishedAtLabel(DateFormat.jm(Localizations.localeOf(context).languageCode).format(DateTime.parse(assignment.endTime))), style: const TextStyle(color: Colors.blueGrey, fontSize: 12)),
             
+            if (assignment.proofPhotos.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                 padding: const EdgeInsets.all(12),
+                 decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green.shade200)),
+                 child: Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+                     Text(AppLocalizations.of(context)!.checkoutEvidenceLabel, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                     const SizedBox(height: 8),
+                     Wrap(
+                       spacing: 8,
+                       runSpacing: 8,
+                       children: assignment.proofPhotos.map((b64) => ClipRRect(
+                         borderRadius: BorderRadius.circular(4),
+                         child: Image.memory(base64Decode(b64), width: 80, height: 80, fit: BoxFit.cover),
+                       )).toList(),
+                     )
+                   ]
+                 ),
+              ),
+            ],
+
             if (assignment.incidents.isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
@@ -156,7 +180,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                  child: Column(
                    crossAxisAlignment: CrossAxisAlignment.start,
                    children: [
-                     const Text('Reported Incidents:', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                     Text(AppLocalizations.of(context)!.reportedIncidentsLabel, style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
                      const SizedBox(height: 4),
                      ...assignment.incidents.map((incident) {
                        return Padding(
@@ -193,7 +217,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                  child: Column(
                    crossAxisAlignment: CrossAxisAlignment.start,
                    children: [
-                     const Text('Inspector Findings / Notes:', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                     Text(AppLocalizations.of(context)!.inspectorFindingsNotesLabel, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
                      const SizedBox(height: 4),
                      ...assignment.findings.map((finding) {
                        return Padding(
@@ -201,7 +225,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                          child: Column(
                            crossAxisAlignment: CrossAxisAlignment.start,
                            children: [
-                             Text(finding.text.isNotEmpty ? finding.text : "No text observation", style: TextStyle(color: Colors.blue.shade900)),
+                             Text(finding.text.isNotEmpty ? finding.text : AppLocalizations.of(context)!.noTextObservationDesc, style: TextStyle(color: Colors.blue.shade900)),
                              if (finding.photos.isNotEmpty) ...[
                                const SizedBox(height: 8),
                                Wrap(
@@ -230,14 +254,14 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                    OutlinedButton.icon(
                       onPressed: () => _showReviewDialog(assignment, false),
                       icon: const Icon(Icons.close),
-                      label: const Text('Decline (Fix Needed)'),
+                      label: Text(AppLocalizations.of(context)!.declineFixNeededAction),
                       style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                    ),
                    const SizedBox(width: 12),
                    ElevatedButton.icon(
                       onPressed: () => _showReviewDialog(assignment, true),
                       icon: const Icon(Icons.check),
-                      label: const Text('Approve'),
+                      label: Text(AppLocalizations.of(context)!.approveAction),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                    ),
                 ],
@@ -259,7 +283,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: Text(isApproval ? 'Add Approval Notes (Optional)' : 'Report Findings (Fix Needed)', style: TextStyle(color: isApproval ? Colors.green : Colors.red)),
+              title: Text(isApproval ? AppLocalizations.of(context)!.addApprovalNotesTitle : AppLocalizations.of(context)!.reportFindingsFixNeededTitle, style: TextStyle(color: isApproval ? Colors.green : Colors.red)),
               content: SizedBox(
                 width: 400,
                 child: Column(
@@ -268,7 +292,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                     TextField(
                       controller: textController,
                       maxLines: 3,
-                      decoration: InputDecoration(labelText: isApproval ? 'Notes' : 'Description of issues', alignLabelWithHint: true),
+                      decoration: InputDecoration(labelText: isApproval ? AppLocalizations.of(context)!.notesLabel : AppLocalizations.of(context)!.descriptionOfIssuesLabel, alignLabelWithHint: true),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
@@ -283,7 +307,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                         }
                       },
                       icon: const Icon(Icons.add_a_photo),
-                      label: const Text('Add Photo'),
+                      label: Text(AppLocalizations.of(context)!.addPhotoAction),
                     ),
                     if (findingPhotos.isNotEmpty) ...[
                       const SizedBox(height: 16),
@@ -329,12 +353,12 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text(AppLocalizations.of(context)!.cancelAction),
                 ),
                 ElevatedButton(
                   onPressed: () async {
                     if (!isApproval && textController.text.trim().isEmpty && findingPhotos.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please provide text or photo to decline')));
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.provideTextOrPhotoError)));
                       return;
                     }
                     
@@ -354,7 +378,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                     if (context.mounted) Navigator.pop(context);
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: isApproval ? Colors.green : Colors.red, foregroundColor: Colors.white),
-                  child: Text(isApproval ? 'Approve Job' : 'Send to Fix'),
+                  child: Text(isApproval ? AppLocalizations.of(context)!.approveJobAction : AppLocalizations.of(context)!.sendToFixAction),
                 ),
               ],
             );

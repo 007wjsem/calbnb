@@ -4,7 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/routing/app_router.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:calbnb/l10n/app_localizations.dart';
 import 'core/theme/app_colors.dart';
 import 'features/settings/presentation/locale_provider.dart';
 
@@ -25,6 +25,7 @@ class MyApp extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
 
     return MaterialApp.router(
+      debugShowCheckedModeBanner: false,
       routerConfig: router,
       title: 'CalBNB',
       locale: locale,
@@ -143,7 +144,6 @@ class MyApp extends ConsumerWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
-      routerConfig: router,
     );
   }
 }

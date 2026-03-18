@@ -1,4 +1,4 @@
-package com.calbnb.app.calbnb
+package com.calbnb
 
 import io.flutter.embedding.android.FlutterActivity
 

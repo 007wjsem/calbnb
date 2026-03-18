@@ -65,6 +65,7 @@ class CleaningAssignment {
   final CleaningStatus status;
   final String startTime;
   final String endTime;
+  final List<String> proofPhotos;
   final List<IncidentReport> incidents;
   final List<InspectionFinding> findings;
 
@@ -83,6 +84,7 @@ class CleaningAssignment {
     this.status = CleaningStatus.assigned,
     this.startTime = '',
     this.endTime = '',
+    this.proofPhotos = const [],
     this.incidents = const [],
     this.findings = const [],
   });
@@ -102,6 +104,7 @@ class CleaningAssignment {
     CleaningStatus? status,
     String? startTime,
     String? endTime,
+    List<String>? proofPhotos,
     List<IncidentReport>? incidents,
     List<InspectionFinding>? findings,
   }) {
@@ -120,6 +123,7 @@ class CleaningAssignment {
       status: status ?? this.status,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
+      proofPhotos: proofPhotos ?? this.proofPhotos,
       incidents: incidents ?? this.incidents,
       findings: findings ?? this.findings,
     );
@@ -144,6 +148,7 @@ class CleaningAssignment {
       ),
       startTime: map['startTime']?.toString() ?? '',
       endTime: map['endTime']?.toString() ?? '',
+      proofPhotos: (map['proofPhotos'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       incidents: (map['incidents'] as List<dynamic>?)?.map((e) => IncidentReport.fromMap(e as Map<dynamic, dynamic>)).toList() ?? [],
       findings: (map['findings'] as List<dynamic>?)?.map((e) => InspectionFinding.fromMap(e as Map<dynamic, dynamic>)).toList() ?? [],
     );
@@ -164,6 +169,7 @@ class CleaningAssignment {
       'status': status.name,
       'startTime': startTime,
       'endTime': endTime,
+      'proofPhotos': proofPhotos,
       'incidents': incidents.map((e) => e.toMap()).toList(),
       'findings': findings.map((e) => e.toMap()).toList(),
     };

@@ -10,6 +10,10 @@ import '../../admin/domain/property.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import 'package:calbnb/l10n/app_localizations.dart';
+import '../../company/domain/subscription.dart';
+import '../../company/data/company_repository.dart';
+import '../../../core/theme/app_colors.dart';
 
 class CleanerDashboard extends ConsumerStatefulWidget {
   const CleanerDashboard({super.key});
@@ -47,13 +51,16 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
     return "$hours:$minutes:$seconds";
   }
 
-  void _showChecklistDialog(CleaningAssignment assignment, Property? property) {
-    if (property == null || property.checklists.isEmpty) {
+  void _showChecklistDialog(CleaningAssignment assignment, Property? property, {required bool requiresPhotoEvidence}) {
+    // If no checklists and no photos required, just finish it directly
+    if ((property == null || property.checklists.isEmpty) && !requiresPhotoEvidence) {
       _updateStatus(assignment, CleaningStatus.pendingInspection, endTimer: true);
       return;
     }
 
-    final Map<int, bool> checkedState = { for (var i = 0; i < property.checklists.length; i++) i: false };
+    final Map<int, bool> checkedState = { for (var i = 0; i < (property?.checklists.length ?? 0); i++) i: false };
+    final List<String> proofPhotos = [];
+    final ImagePicker picker = ImagePicker();
 
     showDialog(
       context: context,
@@ -62,61 +69,135 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
         return StatefulBuilder(
           builder: (context, setState) {
             final allChecked = checkedState.values.every((v) => v);
+            final hasEnoughPhotos = !requiresPhotoEvidence || proofPhotos.isNotEmpty;
+            final canComplete = allChecked && hasEnoughPhotos;
 
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
-                  const Icon(Icons.playlist_add_check, color: AppColors.primary),
+                  Icon(requiresPhotoEvidence ? Icons.camera_alt : Icons.playlist_add_check, color: AppColors.primary),
                   const SizedBox(width: 8),
-                  const Text('Required Checklist'),
+                  Text(requiresPhotoEvidence ? AppLocalizations.of(context)!.checkoutVerificationTitle : AppLocalizations.of(context)!.requiredChecklistTitle),
                 ],
               ),
               content: SizedBox(
                 width: 400,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text('Please verify the following tasks have been completed before finishing this job.', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                    const SizedBox(height: 16),
-                    Flexible(
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: property.checklists.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final item = property.checklists[index];
-                          return CheckboxListTile(
-                            contentPadding: EdgeInsets.zero,
-                            controlAffinity: ListTileControlAffinity.leading,
-                            title: Text(item, style: TextStyle(fontSize: 14, decoration: checkedState[index]! ? TextDecoration.lineThrough : null)),
-                            value: checkedState[index],
-                            activeColor: AppColors.primary,
-                            onChanged: (val) {
-                              setState(() {
-                                checkedState[index] = val ?? false;
-                              });
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (property != null && property.checklists.isNotEmpty) ...[
+                        Text(AppLocalizations.of(context)!.verifyTasksDesc, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                        const SizedBox(height: 16),
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: property.checklists.length,
+                          separatorBuilder: (context, index) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final item = property.checklists[index];
+                            return CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              title: Text(item, style: TextStyle(fontSize: 14, decoration: checkedState[index]! ? TextDecoration.lineThrough : null)),
+                              value: checkedState[index],
+                              activeColor: AppColors.primary,
+                              onChanged: (val) {
+                                setState(() {
+                                  checkedState[index] = val ?? false;
+                                });
+                              },
+                            );
+                          },
+                        ),
+                        if (requiresPhotoEvidence) const SizedBox(height: 24),
+                      ],
+
+                      if (requiresPhotoEvidence) ...[
+                        Text(AppLocalizations.of(context)!.photoEvidenceRequiredTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        const SizedBox(height: 4),
+                        Text(AppLocalizations.of(context)!.capturePhotosDesc, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                        const SizedBox(height: 12),
+                        
+                        // Photo Uploader Row
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            ...proofPhotos.asMap().entries.map((entry) {
+                               final index = entry.key;
+                               final b64 = entry.value;
+                               return Stack(
+                                 clipBehavior: Clip.none,
+                                 children: [
+                                   ClipRRect(
+                                     borderRadius: BorderRadius.circular(8),
+                                     child: Image.memory(base64Decode(b64), width: 80, height: 80, fit: BoxFit.cover),
+                                   ),
+                                   Positioned(
+                                     right: -8,
+                                     top: -8,
+                                     child: GestureDetector(
+                                       onTap: () => setState(() => proofPhotos.removeAt(index)),
+                                       child: Container(
+                                         padding: const EdgeInsets.all(4),
+                                         decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                                         child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                       ),
+                                     ),
+                                   ),
+                                 ]
+                               );
+                            }),
+
+                            if (proofPhotos.length < 3)
+                              GestureDetector(
+                                onTap: () async {
+                                  final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 50, maxWidth: 800);
+                                  if (image != null) {
+                                    final bytes = await image.readAsBytes();
+                                    final base64String = base64Encode(bytes);
+                                    setState(() => proofPhotos.add(base64String));
+                                  }
+                                },
+                                child: Container(
+                                  width: 80,
+                                  height: 80,
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey.withValues(alpha: 0.3), style: BorderStyle.solid),
+                                  ),
+                                  child: const Center(child: Icon(Icons.add_a_photo, color: AppColors.primary)),
+                                ),
+                              )
+                          ],
+                        ),
+                      ]
+                    ],
+                  ),
                 ),
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+                  child: Text(AppLocalizations.of(context)!.cancelAction, style: const TextStyle(color: AppColors.textSecondary)),
                 ),
                 FilledButton.icon(
-                  onPressed: allChecked ? () {
+                  onPressed: canComplete ? () {
                     Navigator.pop(context);
-                    _updateStatus(assignment, CleaningStatus.pendingInspection, endTimer: true);
+                    final repo = ref.read(cleaningRepositoryProvider);
+                    final updated = assignment.copyWith(
+                      status: CleaningStatus.pendingInspection,
+                      endTime: DateTime.now().toIso8601String(),
+                      proofPhotos: proofPhotos,
+                    );
+                    repo.saveAssignment(updated);
                   } : null,
                   icon: const Icon(Icons.check_circle_outline, size: 18),
-                  label: const Text('Complete Job'),
+                  label: Text(AppLocalizations.of(context)!.completeJobAction),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primary,
                   ),
@@ -147,7 +228,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
             runSpacing: 8,
             children: [
               Text(
-                'My Pending Assignments',
+                AppLocalizations.of(context)!.myPendingAssignmentsTitle,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
             ],
@@ -211,12 +292,12 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                         ),
                       )
                     else if (inProgressJob == null)
-                       const Expanded(child: Center(child: Text('No pending assignments.')))
+                       Expanded(child: Center(child: Text(AppLocalizations.of(context)!.noPendingAssignmentsDesc)))
                   ],
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(child: Text('Error: $error')),
+              error: (Object error, StackTrace stack) => Center(child: Text(AppLocalizations.of(context)!.genericError(error.toString()))),
             ),
           )
         ],
@@ -256,7 +337,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                           children: [
                             Icon(Icons.cleaning_services, color: Colors.blue.shade800, size: 14),
                             const SizedBox(width: 4),
-                            Text('ACTIVE JOB', style: TextStyle(color: Colors.blue.shade800, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                            Text(AppLocalizations.of(context)!.activeJobBadge, style: TextStyle(color: Colors.blue.shade800, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                           ],
                         ),
                       ),
@@ -305,7 +386,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Manager Notes', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900)),
+                          Text(AppLocalizations.of(context)!.managerNotesLabel, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900)),
                           const SizedBox(height: 4),
                           Text(assignment.observation, style: TextStyle(color: Colors.orange.shade900)),
                         ],
@@ -328,7 +409,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                        children: [
                           Icon(Icons.list_alt, color: Colors.blue.shade900, size: 18),
                           const SizedBox(width: 8),
-                          Text('Cleaning Instructions', style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
+                          Text(AppLocalizations.of(context)!.cleaningInstructionsLabel, style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
                        ]
                      ),
                      const SizedBox(height: 6),
@@ -363,7 +444,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                   child: OutlinedButton.icon(
                     onPressed: () => _showReportIncidentDialog(assignment),
                     icon: const Icon(Icons.warning_amber),
-                    label: const Text('Report Incident'),
+                    label: Text(AppLocalizations.of(context)!.reportIncidentAction),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.orange.shade800,
                       side: BorderSide(color: Colors.orange.shade800),
@@ -374,15 +455,23 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 1,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showChecklistDialog(assignment, property),
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Finish Job'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final companyAsync = ref.watch(companyProvider(assignment.companyId));
+                      final hasBronze = companyAsync.unwrapPrevious().valueOrNull?.tier.index != null && 
+                                        companyAsync.unwrapPrevious().valueOrNull!.tier.index >= SubscriptionTier.bronze.index;
+
+                      return ElevatedButton.icon(
+                        onPressed: () => _showChecklistDialog(assignment, property, requiresPhotoEvidence: hasBronze),
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: Text(AppLocalizations.of(context)!.finishJobAction),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                      );
+                    }
                   ),
                 ),
               ],
@@ -398,15 +487,15 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
     String statusText;
     switch(assignment.status) {
       case CleaningStatus.assigned:
-        statusColor = Colors.grey; statusText = 'Assigned'; break;
+        statusColor = Colors.grey; statusText = AppLocalizations.of(context)!.statusAssigned; break;
       case CleaningStatus.inProgress:
-        statusColor = Colors.blue; statusText = 'In Progress'; break;
+        statusColor = Colors.blue; statusText = AppLocalizations.of(context)!.statusInProgress; break;
       case CleaningStatus.pendingInspection:
-        statusColor = Colors.orange; statusText = 'Pending Inspection'; break;
+        statusColor = Colors.orange; statusText = AppLocalizations.of(context)!.statusPendingInspection; break;
       case CleaningStatus.fixNeeded:
-        statusColor = Colors.red; statusText = 'Fix Needed'; break;
+        statusColor = Colors.red; statusText = AppLocalizations.of(context)!.statusFixNeeded; break;
       case CleaningStatus.approved:
-        statusColor = Colors.green; statusText = 'Approved (Completed)'; break;
+        statusColor = Colors.green; statusText = AppLocalizations.of(context)!.statusApprovedCompleted; break;
     }
 
     return Card(
@@ -432,7 +521,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                         children: [
                           const Icon(Icons.event_available_outlined, size: 14, color: Colors.blueGrey),
                           const SizedBox(width: 4),
-                          Text('Checkout: ${DateFormat.yMMMd().format(DateTime.parse(assignment.date))}', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                          Text(AppLocalizations.of(context)!.checkoutDateLabel(DateFormat.yMMMd(Localizations.localeOf(context).languageCode).format(DateTime.parse(assignment.date))), style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
                         ]
                       ),
                       const SizedBox(height: 2),
@@ -440,7 +529,8 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                         children: [
                           const Icon(Icons.assignment_turned_in_outlined, size: 14, color: Colors.blueGrey),
                           const SizedBox(width: 4),
-                          Text('Assigned: ${DateFormat.yMMMd().add_jm().format(DateTime.parse(assignment.assignedAt))}', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                          // add_jm isn't natively localized perfectly by default, but yMMMd is
+                          Text(AppLocalizations.of(context)!.assignedDateLabel(DateFormat.yMMMd(Localizations.localeOf(context).languageCode).add_jm().format(DateTime.parse(assignment.assignedAt))), style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
                         ]
                       ),
                     ],
@@ -461,7 +551,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
             ),
             const SizedBox(height: 12),
             if (assignment.observation.isNotEmpty) ...[
-              const Text('Manager Notes:', style: TextStyle(fontWeight: FontWeight.bold)),
+              Text('${AppLocalizations.of(context)!.managerNotesLabel}:', style: const TextStyle(fontWeight: FontWeight.bold)),
               Text(assignment.observation, style: const TextStyle(color: Colors.blueGrey)),
               const SizedBox(height: 12),
             ],
@@ -478,7 +568,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                        children: [
                           Icon(Icons.cleaning_services, color: Colors.blue.shade900, size: 20),
                           const SizedBox(width: 8),
-                          Text('Cleaning Instructions', style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
+                          Text(AppLocalizations.of(context)!.cleaningInstructionsLabel, style: TextStyle(color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
                        ]
                      ),
                      const SizedBox(height: 4),
@@ -509,7 +599,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                  child: Column(
                    crossAxisAlignment: CrossAxisAlignment.start,
                    children: [
-                     const Text('⚠ Inspector Findings requiring fixing:', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                     Text(AppLocalizations.of(context)!.inspectorFindingsFixLabel, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                      const SizedBox(height: 4),
                      Text(assignment.findings.last.text, style: TextStyle(color: Colors.red.shade900)),
                    ]
@@ -525,7 +615,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                    ElevatedButton.icon(
                       onPressed: () => _updateStatus(assignment, CleaningStatus.inProgress, startTimer: true),
                       icon: const Icon(Icons.play_arrow),
-                      label: const Text('Start Job'),
+                      label: Text(AppLocalizations.of(context)!.startJobAction),
                       style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
                    ),
                  ],
@@ -565,7 +655,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
         return StatefulBuilder(
           builder: (context, setState) {
             return AlertDialog(
-              title: const Text('Report Incident'),
+              title: Text(AppLocalizations.of(context)!.reportIncidentAction),
               content: SizedBox(
                 width: 400,
                 child: Column(
@@ -574,7 +664,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                     TextField(
                       controller: textController,
                       maxLines: 3,
-                      decoration: const InputDecoration(labelText: 'Description', alignLabelWithHint: true),
+                      decoration: InputDecoration(labelText: AppLocalizations.of(context)!.descriptionLabel, alignLabelWithHint: true),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
@@ -589,7 +679,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                         }
                       },
                       icon: const Icon(Icons.add_a_photo),
-                      label: const Text('Add Photo'),
+                      label: Text(AppLocalizations.of(context)!.addPhotoAction),
                     ),
                     if (incidentPhotos.isNotEmpty) ...[
                       const SizedBox(height: 16),
@@ -635,7 +725,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: Text(AppLocalizations.of(context)!.cancelAction),
                 ),
                 ElevatedButton(
                   onPressed: () async {
@@ -655,7 +745,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                     await repo.saveAssignment(updated);
                     if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('Submit Report'),
+                  child: Text(AppLocalizations.of(context)!.submitReportAction),
                 ),
               ],
             );

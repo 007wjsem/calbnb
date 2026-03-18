@@ -2,8 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../data/settings_repository.dart';
-import '../../admin/data/property_repository.dart';
-import '../../admin/domain/property.dart';
+import '../../auth/data/auth_repository.dart';
+import '../../company/data/company_repository.dart';
+import '../../company/presentation/currency_provider.dart';
+import '../../company/domain/subscription.dart';
+import '../../../core/theme/app_colors.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:calbnb/l10n/app_localizations.dart';
 
 final settingsRepositoryProvider = Provider((ref) => SettingsRepository());
 
@@ -16,7 +23,13 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isLoading = true;
-  List<Property> _properties = [];
+
+  // Currency picker state
+  String _selectedCurrency = 'USD';
+  // White-label logo state
+  Uint8List? _logoBytes;
+  String? _existingLogoBase64;
+  bool _logoUploading = false;
 
   @override
   void initState() {
@@ -26,81 +39,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _loadData() async {
     try {
-      final propRepo = ref.read(propertyRepositoryProvider);
-      final setRepo = ref.read(settingsRepositoryProvider);
-
-      final allProps = await propRepo.fetchAll();
-      final orderIds = await setRepo.fetchPropertyOrder();
-
-      // Sort properties based on the saved ID order
-      // Properties not in the order list will go to the end
-      if (orderIds.isNotEmpty) {
-        allProps.sort((a, b) {
-          final indexA = orderIds.indexOf(a.id);
-          final indexB = orderIds.indexOf(b.id);
-          if (indexA == -1 && indexB == -1) return 0;
-          if (indexA == -1) return 1;
-          if (indexB == -1) return -1;
-          return indexA.compareTo(indexB);
-        });
-      }
-
       if (mounted) {
         setState(() {
-          _properties = allProps;
           _isLoading = false;
+          // Init currency from the active company
+          final currentUser = ref.read(authControllerProvider);
+          final companyId = currentUser?.activeCompanyId;
+          if (companyId != null && companyId.isNotEmpty) {
+            final companyAsync = ref.read(companyProvider(companyId));
+            _selectedCurrency = companyAsync.valueOrNull?.baseCurrency ?? 'USD';
+            _existingLogoBase64 = companyAsync.valueOrNull?.companyLogoBase64;
+          }
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading data: $e')),
+          SnackBar(content: Text('${AppLocalizations.of(context)!.errorLoadingData} $e')),
         );
       }
     }
-  }
-
-  Future<void> _saveSettings() async {
-    setState(() => _isLoading = true);
-    final repo = ref.read(settingsRepositoryProvider);
-    final propRepo = ref.read(propertyRepositoryProvider);
-    try {
-      final orderIds = _properties.map((p) => p.id).toList();
-      print('DEBUG: Attempting to save property order to Firebase: $orderIds');
-      
-      await Future.wait([
-        repo.savePropertyOrder(orderIds),
-        propRepo.updateOrderBatch(orderIds),
-      ]);
-      
-      print('DEBUG: Save successful.');
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Property order saved successfully.')),
-        );
-      }
-    } catch (e, stack) {
-      print('DEBUG ERROR saving property order: $e');
-      print('DEBUG STACK: $stack');
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving property order: $e')),
-        );
-      }
-    }
-  }
-
-  void _onReorder(int oldIndex, int newIndex) {
-    setState(() {
-      if (oldIndex < newIndex) {
-        newIndex -= 1;
-      }
-      final Property item = _properties.removeAt(oldIndex);
-      _properties.insert(newIndex, item);
-    });
   }
 
   @override
@@ -111,9 +70,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       );
     }
 
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('System Settings'),
+        title: Text(l10n.systemSettingsTitle),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/'),
@@ -124,43 +85,195 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Property Display Order',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Drag and drop the properties below to rearrange how they appear in the system. Click "Save Order" when finished.',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ReorderableListView.builder(
-                itemCount: _properties.length,
-                onReorder: _onReorder,
-                itemBuilder: (context, index) {
-                  final property = _properties[index];
-                  return Card(
-                    key: ValueKey(property.id),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: const Icon(Icons.drag_handle, color: Colors.grey),
-                      title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text('${property.address}, ${property.city} - ${property.propertyType}'),
-                    ),
-                  );
-                },
-              ),
-            ),
+            // ─── Currency Section (Platinum+) ─────────────────────────────
+            Builder(builder: (context) {
+              final currentUser = ref.watch(authControllerProvider);
+              final companyId = currentUser?.activeCompanyId;
+              final companyAsync = companyId != null ? ref.watch(companyProvider(companyId)) : null;
+              final isSuperAdmin = currentUser?.role.displayName == 'Super Admin';
+              // If not Super Admin, ensure they have an active company
+              if (!isSuperAdmin && companyId == null) return const SizedBox.shrink();
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 24),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: AppColors.teal.withOpacity(0.4))),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.currency_exchange, color: AppColors.teal, size: 20),
+                          const SizedBox(width: 8),
+                          Text(l10n.currencySettings, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(l10n.currencySettingsDesc, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: _selectedCurrency,
+                        decoration: InputDecoration(
+                          labelText: l10n.activeCurrency,
+                          prefixIcon: const Icon(Icons.paid_outlined),
+                        ),
+                        items: kSupportedCurrencies.map((c) => DropdownMenuItem(
+                          value: c['code'],
+                          child: Text('${c['symbol']}  ${c['code']} – ${c['name']}'),
+                        )).toList(),
+                        onChanged: (val) => setState(() => _selectedCurrency = val ?? 'USD'),
+                      ),
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.check),
+                          label: Text(l10n.applyCurrency),
+                          onPressed: () async {
+                            if (companyId == null) return;
+                            final selected = kSupportedCurrencies.firstWhere((c) => c['code'] == _selectedCurrency);
+                            await ref.read(companyRepositoryProvider).updateCurrency(
+                              companyId: companyId,
+                              baseCurrency: _selectedCurrency,
+                              currencySymbol: selected['symbol']!,
+                            );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('${AppLocalizations.of(context)!.currencyUpdatedTo} $_selectedCurrency')),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            // ─── White-Label Section (Diamond) ─────────────────────────
+            Builder(builder: (context) {
+              final currentUser = ref.watch(authControllerProvider);
+              final companyId = currentUser?.activeCompanyId;
+              final companyAsync = companyId != null ? ref.watch(companyProvider(companyId)) : null;
+              final company = companyAsync?.valueOrNull;
+              final isDiamond = company != null && (company.tier == SubscriptionTier.diamond);
+
+              if (!isDiamond) return const SizedBox.shrink();
+
+              final existingLogo = _existingLogoBase64 ?? company.companyLogoBase64;
+              final previewBytes = _logoBytes ?? (existingLogo != null ? base64Decode(existingLogo) : null);
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 24),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.amber.shade700.withOpacity(0.4))),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.auto_awesome, color: Colors.amber.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Text(l10n.whiteLabelBranding, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.amber.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                            child: Text(l10n.diamondTier, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade700)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(l10n.whiteLabelDesc, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                      const SizedBox(height: 16),
+                      if (previewBytes != null)
+                        Center(
+                          child: Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.memory(previewBytes, height: 80, fit: BoxFit.contain),
+                              ),
+                              Positioned(
+                                top: -4, right: -4,
+                                child: GestureDetector(
+                                  onTap: () => setState(() { _logoBytes = null; _existingLogoBase64 = null; }),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.error),
+                                    child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (previewBytes != null) const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.image_outlined),
+                            label: Text(l10n.chooseLogo),
+                            onPressed: () async {
+                              final picker = ImagePicker();
+                              final file = await picker.pickImage(source: ImageSource.gallery, maxWidth: 512, maxHeight: 512, imageQuality: 85);
+                              if (file != null) {
+                                final bytes = await file.readAsBytes();
+                                setState(() => _logoBytes = bytes);
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          FilledButton.icon(
+                            icon: _logoUploading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.upload),
+                            label: Text(l10n.upload),
+                            onPressed: _logoUploading ? null : () async {
+                              if (companyId == null) return;
+                              setState(() => _logoUploading = true);
+                              final base64Str = _logoBytes != null ? base64Encode(_logoBytes!) : null;
+                              await ref.read(companyRepositoryProvider).updateCompanyLogo(
+                                companyId: companyId,
+                                logoBase64: base64Str,
+                              );
+                              setState(() {
+                                _existingLogoBase64 = base64Str;
+                                _logoBytes = null;
+                                _logoUploading = false;
+                              });
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(base64Str != null ? AppLocalizations.of(context)!.logoUpdated : AppLocalizations.of(context)!.logoRemoved)),
+                                );
+                              }
+                            },
+                          ),
+                          if ((existingLogo != null || _logoBytes != null)) ...[
+                            const SizedBox(width: 8),
+                            TextButton(
+                              style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                              child: Text(l10n.remove),
+                              onPressed: _logoUploading ? null : () async {
+                                if (companyId == null) return;
+                                setState(() => _logoUploading = true);
+                                await ref.read(companyRepositoryProvider).updateCompanyLogo(
+                                  companyId: companyId,
+                                  logoBase64: null,
+                                );
+                                setState(() { _logoBytes = null; _existingLogoBase64 = null; _logoUploading = false; });
+                              },
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _saveSettings,
-        backgroundColor: const Color(0xFF1E3A8A),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.save),
-        label: const Text('Save Order'),
       ),
     );
   }

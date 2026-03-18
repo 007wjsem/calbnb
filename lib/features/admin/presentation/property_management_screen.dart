@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:image_picker/image_picker.dart';
 import '../../admin/data/property_repository.dart';
 import '../../admin/domain/property.dart';
-import '../../auth/data/auth_repository.dart';
 import '../../company/data/company_repository.dart';
+import '../../auth/data/auth_repository.dart';
+import '../../admin/data/user_repository.dart';
+import '../../auth/domain/user.dart' as domain_user;
+import '../../../core/constants/roles.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../company/domain/subscription.dart';
+import 'package:calbnb/l10n/app_localizations.dart';
 
 class PropertyManagementScreen extends ConsumerStatefulWidget {
-  const PropertyManagementScreen({super.key});
+  final String? companyId;
+  const PropertyManagementScreen({super.key, this.companyId});
 
   @override
   ConsumerState<PropertyManagementScreen> createState() => _PropertyManagementScreenState();
@@ -25,26 +32,95 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
   bool _loading = true;
   String? _error;
 
+  bool _isReordering = false;
+  StreamSubscription<List<Property>>? _propSub;
+  PropertyRepository? _lastRepo;
+  // Snapshot of the order taken when entering reorder mode, used to revert on cancel.
+  List<Property> _backupProperties = [];
+
   @override
   void initState() {
     super.initState();
-    _loadProperties();
     _searchCtrl.addListener(() => setState(() => _query = _searchCtrl.text.trim().toLowerCase()));
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-subscribe whenever the repository instance changes (e.g., after auth state
+    // changes that cause propertyRepositoryProvider to reconstruct).
+    final repo = ref.read(propertyRepositoryProvider);
+    if (repo != _lastRepo) {
+      _lastRepo = repo;
+      _subscribeToProperties();
+    }
+  }
+
+  @override
   void dispose() {
+    _propSub?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
 
+  Future<void> _saveOrder() async {
+    setState(() => _loading = true);
+    final repo = ref.read(propertyRepositoryProvider);
+    try {
+      final orderIds = _allProperties.map((p) => p.id).toList();
+      await repo.updateOrderBatch(orderIds);
+      if (mounted) {
+        setState(() {
+          _isReordering = false;
+          _loading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.propertyOrderSaved)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${AppLocalizations.of(context)!.errorSavingPropertyOrder} $e')),
+        );
+      }
+    }
+  }
+
+  void _subscribeToProperties() {
+    setState(() => _loading = true);
+    final repo = ref.read(propertyRepositoryProvider);
+    _propSub?.cancel();
+    _propSub = repo.watchAll().listen(
+      (props) {
+        final filteredProps = widget.companyId != null
+            ? props.where((p) => p.companyId == widget.companyId).toList()
+            : props;
+        filteredProps.sort((a, b) {
+          if (a.order >= 0 && b.order >= 0) return a.order.compareTo(b.order);
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        if (mounted) setState(() { _allProperties = filteredProps; _loading = false; });
+      },
+      onError: (e) {
+        if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      },
+    );
+  }
+
+  // Keep _loadProperties so order-save can trigger a one-shot refresh if needed
   Future<void> _loadProperties() async {
     setState(() => _loading = true);
     try {
       final repo = ref.read(propertyRepositoryProvider);
       final props = await repo.fetchAll();
-      props.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-      setState(() { _allProperties = props; _loading = false; });
+      final filteredProps = widget.companyId != null ? props.where((p) => p.companyId == widget.companyId).toList() : props;
+      filteredProps.sort((a, b) {
+        if (a.order >= 0 && b.order >= 0) return a.order.compareTo(b.order);
+        return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+      });
+      setState(() { _allProperties = filteredProps; _loading = false; });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });
     }
@@ -84,191 +160,314 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     final activeCompanyId = currentUser?.activeCompanyId;
     final companyAsync = activeCompanyId != null ? ref.watch(companyProvider(activeCompanyId)) : const AsyncValue.loading();
     final company = companyAsync.valueOrNull;
+    final companyCurrency = company?.currencySymbol ?? '\$';
     
     final bool canAddProperty = isSuperAdmin || (company != null && (company.tier.includedProperties == null || _allProperties.length < company.tier.includedProperties!));
 
     final filtered = _filtered;
     final cities = _cities;
     final mgmts = _mgmts;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Properties'),
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/')),
+        title: Text(_isReordering ? 'Arrange Properties' : l10n.propertiesTitle),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _isReordering
+              ? () => setState(() {
+                    _allProperties = List.from(_backupProperties);
+                    _isReordering = false;
+                  })
+              : () => context.go('/'),
+        ),
         actions: [
-          if (isSuperAdmin)
+          if (isSuperAdmin && !_isReordering)
             IconButton(
               icon: const Icon(Icons.auto_awesome),
-              tooltip: 'Generate Dummy Property (Test)',
+              tooltip: l10n.generateDummyProperty,
               onPressed: () async {
                 final dummyProp = _generateDummyProperty(activeCompanyId);
                 await repo.add(dummyProp);
-                await _loadProperties();
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added ${dummyProp.name}')));
                 }
               },
             ),
+          if (!_isReordering)
+            IconButton(
+              icon: const Icon(Icons.swap_vert),
+              tooltip: 'Reorder Properties',
+              onPressed: () {
+                setState(() {
+                  _backupProperties = List.from(_allProperties);
+                  _isReordering = true;
+                });
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: 'Cancel',
+              onPressed: () {
+                setState(() {
+                  _allProperties = List.from(_backupProperties);
+                  _isReordering = false;
+                });
+              },
+            ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      // ── Bottom bar shown only in reorder mode ──────────────────────────
+      bottomNavigationBar: _isReordering
+          ? SafeArea(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 12,
+                      offset: const Offset(0, -3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _allProperties = List.from(_backupProperties);
+                            _isReordering = false;
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: const BorderSide(color: AppColors.primary),
+                          foregroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed: _saveOrder,
+                        icon: const Icon(Icons.check_rounded, size: 20),
+                        label: const Text('Save Order', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : null,
+      floatingActionButton: _isReordering ? null : FloatingActionButton.extended(
         onPressed: canAddProperty 
             ? () => _showPropertyDialog(context, ref, repo)
-            : () => _showLimitDialog(context, company?.tier.includedProperties ?? 5),
+            : () => _showLimitDialog(context, company?.tier.includedProperties ?? 5, l10n),
         backgroundColor: canAddProperty ? AppColors.primary : Colors.grey.shade600,
         foregroundColor: Colors.white,
         icon: Icon(canAddProperty ? Icons.add_home_outlined : Icons.lock_outline),
-        label: Text(canAddProperty ? 'Add Property' : 'Limit Reached'),
+        label: Text(canAddProperty ? l10n.addPropertyAction : l10n.limitReached),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(child: Text('Error: $_error'))
+              ? Center(child: Text('${l10n.errorOccurred} $_error'))
               : Column(
                   children: [
                     // ── Search + Filter header ────────────────────────────
-                    Container(
-                      color: AppColors.surface,
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: _searchCtrl,
-                            decoration: InputDecoration(
-                              hintText: 'Search by name, address, owner, or management…',
-                              prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
-                              suffixIcon: _query.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear_rounded, size: 18),
-                                      onPressed: () => _searchCtrl.clear(),
-                                    )
-                                  : null,
-                              filled: true,
-                              fillColor: AppColors.background,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
+                    if (!_isReordering)
+                      Container(
+                        color: AppColors.surface,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _searchCtrl,
+                              decoration: InputDecoration(
+                                hintText: l10n.searchPropertiesHint,
+                                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textSecondary),
+                                suffixIcon: _query.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear_rounded, size: 18),
+                                        onPressed: () => _searchCtrl.clear(),
+                                      )
+                                    : null,
+                                filled: true,
+                                fillColor: AppColors.background,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide.none,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(vertical: 14),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(vertical: 14),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          // City filter chips
-                          if (cities.isNotEmpty) ...[  
-                            const Text('City', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.5)),
-                            const SizedBox(height: 6),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  _PropFilterChip(
-                                    label: 'All Cities',
-                                    selected: _cityFilter == null,
-                                    onSelected: (_) => setState(() => _cityFilter = null),
-                                  ),
-                                  ...cities.map((c) => Padding(
-                                    padding: const EdgeInsets.only(left: 8),
-                                    child: _PropFilterChip(
-                                      label: c,
-                                      selected: _cityFilter == c,
-                                      onSelected: (_) => setState(() => _cityFilter = _cityFilter == c ? null : c),
+                            const SizedBox(height: 10),
+                            // City filter chips
+                            if (cities.isNotEmpty) ...[  
+                              Text(l10n.cityLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.5)),
+                              const SizedBox(height: 6),
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    _PropFilterChip(
+                                      label: l10n.allCitiesFilter,
+                                      selected: _cityFilter == null,
+                                      onSelected: (_) => setState(() => _cityFilter = null),
                                     ),
-                                  )),
-                                ],
+                                    ...cities.map((c) => Padding(
+                                      padding: const EdgeInsets.only(left: 8),
+                                      child: _PropFilterChip(
+                                        label: c,
+                                        selected: _cityFilter == c,
+                                        onSelected: (_) => setState(() => _cityFilter = _cityFilter == c ? null : c),
+                                      ),
+                                    )),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          // Management filter chips
-                          if (mgmts.isNotEmpty) ...[  
-                            const Text('Property Management', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.5)),
-                            const SizedBox(height: 6),
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  _PropFilterChip(
-                                    label: 'All',
-                                    selected: _mgmtFilter == null,
-                                    onSelected: (_) => setState(() => _mgmtFilter = null),
-                                  ),
-                                  ...mgmts.map((m) => Padding(
-                                    padding: const EdgeInsets.only(left: 8),
-                                    child: _PropFilterChip(
-                                      label: m,
-                                      selected: _mgmtFilter == m,
-                                      onSelected: (_) => setState(() => _mgmtFilter = _mgmtFilter == m ? null : m),
+                              const SizedBox(height: 8),
+                            ],
+                            // Management filter chips
+                            if (mgmts.isNotEmpty) ...[  
+                              Text(l10n.propertyManagementLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary, letterSpacing: 0.5)),
+                              const SizedBox(height: 6),
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    _PropFilterChip(
+                                      label: l10n.allFilter,
+                                      selected: _mgmtFilter == null,
+                                      onSelected: (_) => setState(() => _mgmtFilter = null),
                                     ),
-                                  )),
-                                ],
+                                    ...mgmts.map((m) => Padding(
+                                      padding: const EdgeInsets.only(left: 8),
+                                      child: _PropFilterChip(
+                                        label: m,
+                                        selected: _mgmtFilter == m,
+                                        onSelected: (_) => setState(() => _mgmtFilter = _mgmtFilter == m ? null : m),
+                                      ),
+                                    )),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                '${filtered.length} ${l10n.ofKeyword} ${_allProperties.length} ${l10n.propertiesKeyword}',
+                                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                               ),
                             ),
-                            const SizedBox(height: 8),
                           ],
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Text(
-                              '${filtered.length} of ${_allProperties.length} properties',
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
                     const Divider(height: 1),
                     // ── List ─────────────────────────────────────────────
-                    Expanded(
-                      child: filtered.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.home_work_outlined, size: 64, color: AppColors.border),
-                                  const SizedBox(height: 16),
-                                  const Text('No properties found', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                                  const SizedBox(height: 6),
-                                  const Text('Try adjusting your search or filters', style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                                ],
+                    if (_isReordering)
+                      Expanded(
+                        child: ReorderableListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          // Disable the built-in long-press drag handle so we can use
+                          // ReorderableDragStartListener on just the icon — this lets
+                          // iOS users drag immediately on touch-down without triggering
+                          // the scroll gesture first.
+                          buildDefaultDragHandles: false,
+                          itemCount: _allProperties.length,
+                          onReorder: (oldIndex, newIndex) {
+                            setState(() {
+                              if (oldIndex < newIndex) {
+                                newIndex -= 1;
+                              }
+                              final Property item = _allProperties.removeAt(oldIndex);
+                              _allProperties.insert(newIndex, item);
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            final property = _allProperties[index];
+                            return Card(
+                              key: ValueKey(property.id),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              elevation: 2,
+                              child: ListTile(
+                                leading: ReorderableDragStartListener(
+                                  index: index,
+                                  child: const Icon(Icons.drag_handle, color: Colors.grey),
+                                ),
+                                title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                subtitle: Text('${property.address}, ${property.city}'),
                               ),
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                              itemCount: filtered.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
-                              itemBuilder: (context, index) {
-                                final property = filtered[index];
-                                final globalIndex = _allProperties.indexOf(property) + 1;
-                                return _PropertyCard(
-                                  property: property,
-                                  index: globalIndex,
-                                  onEdit: () => _showPropertyDialog(context, ref, repo, existingProperty: property),
-                                  onDelete: () async {
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                        title: const Text('Delete Property'),
-                                        content: Text('Delete "${property.name}"? This cannot be undone.'),
-                                        actions: [
-                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                          FilledButton(
-                                            onPressed: () => Navigator.pop(ctx, true),
-                                            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-                                            child: const Text('Delete'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                    if (confirm == true && mounted) {
-                                      await repo.delete(property.id);
-                                      await _loadProperties();
-                                    }
-                                  },
-                                );
-                              },
-                            ),
-                    ),
+                            );
+                          },
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.home_work_outlined, size: 64, color: AppColors.border),
+                                    const SizedBox(height: 16),
+                                    Text(l10n.noPropertiesFound, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                                    const SizedBox(height: 6),
+                                    Text(l10n.tryAdjustingSearchFilters, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                                  ],
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  final property = filtered[index];
+                                  final globalIndex = _allProperties.indexOf(property) + 1;
+                                  return _PropertyCard(
+                                    property: property,
+                                    index: globalIndex,
+                                    currencySymbol: companyCurrency,
+                                    onEdit: () => _showPropertyDialog(context, ref, repo, existingProperty: property),
+                                    onDelete: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                          title: Text(l10n.deletePropertyTitle),
+                                          content: Text(l10n.deletePropertyPrompt(property.name)),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancelAction)),
+                                            FilledButton(
+                                              onPressed: () => Navigator.pop(ctx, true),
+                                              style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+                                              child: Text(l10n.deleteAction),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true && mounted) {
+                                        await repo.delete(property.id);
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
                   ],
                 ),
     );
@@ -292,6 +491,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     final housePinController = TextEditingController(text: existingProperty?.housePin ?? '');
     final garagePinController = TextEditingController(text: existingProperty?.garagePin ?? '');
     final cleaningInstructionsController = TextEditingController(text: existingProperty?.cleaningInstructions ?? '');
+    final bufferHoursController = TextEditingController(text: existingProperty?.bufferHours.toString() ?? '0');
     List<String> instructionPhotos = List.from(existingProperty?.instructionPhotos ?? []);
     List<String> checklists = List.from(existingProperty?.checklists ?? []);
     final newChecklistCtrl = TextEditingController();
@@ -301,14 +501,24 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
         ? existingProperty!.propertyType 
         : 'House';
 
+    String selectedCadence = existingProperty?.recurringCadence ?? 'none';
+    String selectedTrashDay = existingProperty?.trashDay ?? '';
+    String? selectedOwnerAccountId = existingProperty?.ownerAccountId;
+
     // Determine the user context for company access
     final currentUser = ref.read(authControllerProvider);
     final isSuperAdmin = currentUser?.role.displayName == 'Super Admin';
     final userCompanyId = currentUser?.activeCompanyId ?? '';
+    
     // For super admins selecting target company; start with existing or empty
     String selectedCompanyId = existingProperty?.companyId.isNotEmpty == true
         ? existingProperty!.companyId
         : (isSuperAdmin ? '' : userCompanyId);
+        
+    // Watch the active company for Silver-tier gating
+    final activeCompId = selectedCompanyId.isNotEmpty ? selectedCompanyId : userCompanyId;
+    final companyAsync = ref.watch(companyProvider(activeCompId));
+    final hasSilverTier = (companyAsync.valueOrNull?.tier.index ?? 0) >= SubscriptionTier.silver.index;
 
     int currentStep = 0;
 
@@ -317,19 +527,38 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            
+            final isMobile = MediaQuery.of(context).size.width < 600;
+
+            Widget buildResponsiveRow(List<Widget> children) {
+              if (isMobile) {
+                return Column(
+                  children: children.map((c) {
+                    if (c is Expanded) return Padding(padding: const EdgeInsets.only(bottom: 16), child: c.child);
+                    if (c is SizedBox && (c.width ?? 0) > 0) return const SizedBox.shrink();
+                    return c;
+                  }).toList(),
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: children,
+              );
+            }
+
             Widget buildCompanySelector() {
+              final l10n = AppLocalizations.of(context)!;
               if (isSuperAdmin) {
                 return Consumer(builder: (ctx, cref, _) {
                   final companiesAsync = cref.watch(globalCompaniesProvider);
                   return companiesAsync.when(
                     data: (companies) => DropdownButtonFormField<String>(
+                      isExpanded: true,
                       value: selectedCompanyId.isNotEmpty ? selectedCompanyId : null,
-                      decoration: const InputDecoration(
-                        labelText: 'Assign to Company *',
-                        prefixIcon: Icon(Icons.business_outlined),
+                      decoration: InputDecoration(
+                        labelText: l10n.assignToCompanyLabel,
+                        prefixIcon: const Icon(Icons.business_outlined),
                       ),
-                      hint: const Text('Select company'),
+                      hint: Text(l10n.selectCompanyHint),
                       items: companies.map((c) => DropdownMenuItem(
                         value: c.id,
                         child: Text(c.name),
@@ -347,9 +576,9 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                       : const AsyncValue<dynamic>.data(null);
                   final company = companyAsync.valueOrNull;
                   return InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Company',
-                      prefixIcon: Icon(Icons.business_outlined),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context)!.companyLabel,
+                      prefixIcon: const Icon(Icons.business_outlined),
                     ),
                     child: Text(
                       company?.name ?? userCompanyId,
@@ -360,32 +589,39 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
               }
             }
 
+            final l10n = AppLocalizations.of(context)!;
+            
             final steps = [
               Step(
-                title: const Text('Basic', style: TextStyle(fontSize: 13)),
+                title: Text(l10n.stepBasic, style: const TextStyle(fontSize: 13)),
                 isActive: currentStep >= 0,
                 state: currentStep > 0 ? StepState.complete : StepState.indexed,
-                content: Column(
-                  children: [
-                    buildCompanySelector(),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
+                content: Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Column(
+                    children: [
+                      buildCompanySelector(),
+                      const SizedBox(height: 16),
+                    buildResponsiveRow(
+                      [
                         Expanded(
                           flex: 2,
                           child: TextField(
                             controller: nameController,
-                            decoration: const InputDecoration(labelText: 'Property Name', prefixIcon: Icon(Icons.label_outline)),
+                            decoration: InputDecoration(labelText: l10n.propertyNameLabel, prefixIcon: const Icon(Icons.label_outline)),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: DropdownButtonFormField<String>(
+                            isExpanded: true,
                             value: selectedType,
-                            decoration: const InputDecoration(labelText: 'Property Type', prefixIcon: Icon(Icons.category_outlined)),
-                            items: ['House', 'Apartment', 'Other'].map((type) {
-                              return DropdownMenuItem(value: type, child: Text(type));
-                            }).toList(),
+                            decoration: InputDecoration(labelText: l10n.propertyTypeLabel, prefixIcon: const Icon(Icons.category_outlined)),
+                            items: [
+                              DropdownMenuItem(value: 'House', child: Text(l10n.typeHouse)),
+                              DropdownMenuItem(value: 'Apartment', child: Text(l10n.typeApartment)),
+                              DropdownMenuItem(value: 'Other', child: Text(l10n.typeOther)),
+                            ],
                             onChanged: (val) {
                               if (val != null) setState(() => selectedType = val);
                             },
@@ -396,86 +632,210 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                   ],
                 ),
               ),
-              Step(
-                title: const Text('Location & Details', style: TextStyle(fontSize: 13)),
+            ),
+            Step(
+              title: Text(l10n.stepLocationDetails, style: const TextStyle(fontSize: 13)),
                 isActive: currentStep >= 1,
                 state: currentStep > 1 ? StepState.complete : StepState.indexed,
                 content: Column(
                   children: [
                     TextField(
                       controller: addressController,
-                      decoration: const InputDecoration(labelText: 'Street Address', prefixIcon: Icon(Icons.location_on_outlined)),
+                      decoration: InputDecoration(labelText: l10n.streetAddressLabel, prefixIcon: const Icon(Icons.location_on_outlined)),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
+                    buildResponsiveRow(
+                      [
                         Expanded(
                           child: TextField(
                             controller: cityController,
-                            decoration: const InputDecoration(labelText: 'City'),
+                            decoration: InputDecoration(labelText: l10n.cityLabel),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: TextField(
                             controller: stateController,
-                            decoration: const InputDecoration(labelText: 'State/Province'),
+                            decoration: InputDecoration(labelText: l10n.stateProvinceLabel),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
+                    if (!isMobile) const SizedBox(height: 16),
+                    buildResponsiveRow(
+                      [
                         Expanded(
                           child: TextField(
                              controller: zipCodeController,
-                             decoration: const InputDecoration(labelText: 'Zip/Postal Code'),
+                             decoration: InputDecoration(labelText: l10n.zipPostalCodeLabel),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: TextField(
                              controller: countryController,
-                             decoration: const InputDecoration(labelText: 'Country'),
+                             decoration: InputDecoration(labelText: l10n.countryLabel),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
+                    if (!isMobile) const SizedBox(height: 16),
+                    buildResponsiveRow(
+                      [
                         Expanded(
                           child: TextField(
                             controller: cleaningFeeController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'Cleaning Fee (\$)', prefixIcon: Icon(Icons.attach_money)),
+                            decoration: InputDecoration(labelText: l10n.cleaningFeeLabel, prefixIcon: const Icon(Icons.attach_money)),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: TextField(
                             controller: sizeController,
-                            decoration: const InputDecoration(labelText: 'Size (e.g. 1500 sqft)', prefixIcon: Icon(Icons.aspect_ratio)),
+                            decoration: InputDecoration(labelText: l10n.sizeLabel, prefixIcon: const Icon(Icons.aspect_ratio)),
                           ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        const Icon(Icons.calendar_month_outlined, color: AppColors.teal, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.schedulingSettingsLabel,
+                            style: TextStyle(fontWeight: FontWeight.bold, color: hasSilverTier ? AppColors.textPrimary : AppColors.textSecondary),
+                            overflow: TextOverflow.visible,
+                          ),
+                        ),
+                        if (!hasSilverTier)
+                          const Padding(
+                            padding: EdgeInsets.only(left: 8),
+                            child: Icon(Icons.lock_outline, size: 14, color: AppColors.amber),
+                          )
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    buildResponsiveRow(
+                      [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: selectedCadence,
+                            decoration: InputDecoration(
+                              labelText: l10n.recurringCleanCadenceLabel,
+                              enabled: hasSilverTier,
+                            ),
+                            items: [
+                              DropdownMenuItem(value: 'none', child: Text(l10n.cadenceNone)),
+                              DropdownMenuItem(value: 'weekly', child: Text(l10n.cadenceWeekly)),
+                              DropdownMenuItem(value: 'biweekly', child: Text(l10n.cadenceBiWeekly)),
+                              DropdownMenuItem(value: 'monthly', child: Text(l10n.cadenceMonthly)),
+                            ],
+                            onChanged: hasSilverTier ? (val) => setState(() => selectedCadence = val ?? 'none') : null,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            value: selectedTrashDay,
+                            decoration: InputDecoration(
+                              labelText: l10n.trashDayLabel,
+                              enabled: hasSilverTier,
+                            ),
+                            items: [
+                              DropdownMenuItem(value: '', child: Text(l10n.trashDayNone)),
+                              DropdownMenuItem(value: 'Monday', child: Text(l10n.trashDayMonday)),
+                              DropdownMenuItem(value: 'Tuesday', child: Text(l10n.trashDayTuesday)),
+                              DropdownMenuItem(value: 'Wednesday', child: Text(l10n.trashDayWednesday)),
+                              DropdownMenuItem(value: 'Thursday', child: Text(l10n.trashDayThursday)),
+                              DropdownMenuItem(value: 'Friday', child: Text(l10n.trashDayFriday)),
+                              DropdownMenuItem(value: 'Saturday', child: Text(l10n.trashDaySaturday)),
+                              DropdownMenuItem(value: 'Sunday', child: Text(l10n.trashDaySunday)),
+                            ],
+                            onChanged: hasSilverTier ? (val) => setState(() => selectedTrashDay = val ?? '') : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: bufferHoursController,
+                      keyboardType: TextInputType.number,
+                      enabled: hasSilverTier,
+                      decoration: InputDecoration(
+                        labelText: l10n.bufferHoursLabel,
+                        hintText: l10n.bufferHoursHint,
+                        prefixIcon: const Icon(Icons.hourglass_empty),
+                        enabled: hasSilverTier,
+                      ),
                     ),
                   ],
                 ),
               ),
               Step(
-                title: const Text('Owner & Mgmt', style: TextStyle(fontSize: 13)),
+                title: Text(l10n.stepOwnerMgmt, style: const TextStyle(fontSize: 13)),
                 isActive: currentStep >= 2,
                 state: currentStep > 2 ? StepState.complete : StepState.indexed,
                 content: Column(
                   children: [
-                    Row(
-                      children: [
+                    Consumer(
+                      builder: (ctx, cref, _) {
+                        final usersRef = cref.watch(userRepositoryProvider);
+                        return FutureBuilder<List<domain_user.User>>( // Using `User` from auth domain via renamed mapping below
+                          future: usersRef.fetchAll(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return const LinearProgressIndicator();
+                            }
+                            
+                            final allUsers = snapshot.data ?? [];
+                            // Filter users who have the Owner role
+                            final ownerUsers = allUsers.where((u) => u.role == AppRole.owner).toList();
+                            
+                            return DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              value: selectedOwnerAccountId,
+                              decoration: InputDecoration(
+                                labelText: l10n.linkedOwnerAccountLabel,
+                                prefixIcon: const Icon(Icons.manage_accounts_outlined),
+                                helperText: l10n.linkedOwnerAccountHelper,
+                              ),
+                              items: ownerUsers.map((u) {
+                                return DropdownMenuItem(
+                                  value: u.id,
+                                  child: Text('${u.username} (${u.email ?? "No Email"})'),
+                                );
+                              }).toList()
+                                ..insert(0, DropdownMenuItem(value: null, child: Text(l10n.noneUnassigned))),
+                              onChanged: (val) {
+                                setState(() {
+                                  selectedOwnerAccountId = val;
+                                  
+                                  // Auto-fill legacy text fields if an owner is selected
+                                  if (val != null) {
+                                    final match = ownerUsers.firstWhere((u) => u.id == val);
+                                    ownerNameController.text = match.username;
+                                    ownerEmailController.text = match.email ?? '';
+                                    ownerPhoneController.text = match.phone ?? '';
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    buildResponsiveRow(
+                      [
                         Expanded(
                           child: TextField(
                             controller: ownerNameController,
-                            decoration: const InputDecoration(labelText: 'Owner Name', prefixIcon: Icon(Icons.person_outline)),
+                            decoration: InputDecoration(labelText: l10n.ownerNameLegacyLabel, prefixIcon: const Icon(Icons.person_outline)),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -483,26 +843,26 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                           child: TextField(
                             controller: ownerPhoneController,
                             keyboardType: TextInputType.phone,
-                            decoration: const InputDecoration(labelText: 'Phone Number', prefixIcon: Icon(Icons.phone_outlined)),
+                            decoration: InputDecoration(labelText: l10n.phoneNumber, prefixIcon: const Icon(Icons.phone_outlined)),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
+                    if (!isMobile) const SizedBox(height: 16),
+                    buildResponsiveRow(
+                      [
                         Expanded(
                           child: TextField(
                             controller: ownerEmailController,
                             keyboardType: TextInputType.emailAddress,
-                            decoration: const InputDecoration(labelText: 'Email Address', prefixIcon: Icon(Icons.email_outlined)),
+                            decoration: InputDecoration(labelText: l10n.emailAddressLabel, prefixIcon: const Icon(Icons.email_outlined)),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: TextField(
                             controller: propertyMgmtController,
-                            decoration: const InputDecoration(labelText: 'Property Management Company', prefixIcon: Icon(Icons.business_outlined)),
+                            decoration: InputDecoration(labelText: l10n.propertyManagementCompanyLabel, prefixIcon: const Icon(Icons.business_outlined)),
                           ),
                         ),
                       ],
@@ -511,18 +871,18 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                 ),
               ),
               Step(
-                title: const Text('Access & Cleaning', style: TextStyle(fontSize: 13)),
+                title: Text(l10n.stepAccessCleaning, style: const TextStyle(fontSize: 13)),
                 isActive: currentStep >= 3,
                 state: currentStep > 3 ? StepState.complete : StepState.indexed,
                 content: Column(
                   children: [
-                    Row(
-                      children: [
+                    buildResponsiveRow(
+                      [
                         Expanded(
                           child: TextField(
                             controller: lockBoxPinController,
                             keyboardType: TextInputType.text,
-                            decoration: const InputDecoration(labelText: 'Lock Box Pin', prefixIcon: Icon(Icons.lock_outline)),
+                            decoration: InputDecoration(labelText: l10n.lockBoxPinLabel, prefixIcon: const Icon(Icons.lock_outline)),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -530,7 +890,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                           child: TextField(
                             controller: housePinController,
                             keyboardType: TextInputType.text,
-                            decoration: const InputDecoration(labelText: 'House Pin', prefixIcon: Icon(Icons.door_front_door_outlined)),
+                            decoration: InputDecoration(labelText: l10n.housePinLabel, prefixIcon: const Icon(Icons.door_front_door_outlined)),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -538,7 +898,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                           child: TextField(
                             controller: garagePinController,
                             keyboardType: TextInputType.text,
-                            decoration: const InputDecoration(labelText: 'Garage Pin', prefixIcon: Icon(Icons.garage_outlined)),
+                            decoration: InputDecoration(labelText: l10n.garagePinLabel, prefixIcon: const Icon(Icons.garage_outlined)),
                           ),
                         ),
                       ],
@@ -547,7 +907,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                     TextField(
                       controller: cleaningInstructionsController,
                       maxLines: 4,
-                      decoration: const InputDecoration(labelText: 'Cleaning Instructions', alignLabelWithHint: true, prefixIcon: Icon(Icons.cleaning_services_outlined)),
+                      decoration: InputDecoration(labelText: l10n.cleaningInstructionsLabel, alignLabelWithHint: true, prefixIcon: const Icon(Icons.cleaning_services_outlined)),
                     ),
                     const SizedBox(height: 16),
                     
@@ -562,16 +922,16 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Custom Cleaning Checklists', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          Text(l10n.customCleaningChecklistsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                           const SizedBox(height: 8),
                           Row(
                             children: [
                               Expanded(
                                 child: TextField(
                                   controller: newChecklistCtrl,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Add a new mandatory checklist item...',
-                                    prefixIcon: Icon(Icons.check_box_outline_blank, size: 18),
+                                  decoration: InputDecoration(
+                                    hintText: l10n.addChecklistItemHint,
+                                    prefixIcon: const Icon(Icons.check_box_outline_blank, size: 18),
                                   ),
                                   onSubmitted: (val) {
                                     if (val.trim().isNotEmpty) {
@@ -586,7 +946,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                               const SizedBox(width: 8),
                               IconButton(
                                 icon: const Icon(Icons.add_circle, color: AppColors.primary),
-                                tooltip: 'Add Checklist Item',
+                                tooltip: l10n.addChecklistItemTooltip,
                                 onPressed: () {
                                   if (newChecklistCtrl.text.trim().isNotEmpty) {
                                     setState(() {
@@ -637,7 +997,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                           }
                         },
                         icon: const Icon(Icons.add_a_photo),
-                        label: const Text('Add Instruction Photo'),
+                        label: Text(l10n.addInstructionPhotoAction),
                       ),
                     ),
                     if (instructionPhotos.isNotEmpty) ...[
@@ -696,20 +1056,24 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                       color: AppColors.primary.withOpacity(0.05),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isEditing ? 'Edit Property' : 'Add New Property',
-                                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Complete the steps below to setup the property details.',
-                                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                              ),
-                            ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isEditing ? l10n.editPropertyTitle : l10n.addNewPropertyTitle,
+                                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                  overflow: TextOverflow.visible,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  l10n.setupPropertyDetailsDesc,
+                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                                ),
+                              ],
+                            ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.close),
@@ -721,7 +1085,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                     const Divider(height: 1, thickness: 1),
                     Expanded(
                       child: Stepper(
-                        type: StepperType.horizontal,
+                        type: MediaQuery.of(context).size.width < 600 ? StepperType.vertical : StepperType.horizontal,
                         currentStep: currentStep,
                         elevation: 0,
                         onStepTapped: (index) {
@@ -738,7 +1102,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                             // Final Save Validation
                             if (isSuperAdmin && selectedCompanyId.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Please select a company for this property.')),
+                                SnackBar(content: Text(l10n.pleaseSelectCompanyError)),
                               );
                               return;
                             }
@@ -766,6 +1130,10 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                               cleaningInstructions: cleaningInstructionsController.text.trim(),
                               instructionPhotos: instructionPhotos,
                               checklists: checklists,
+                              ownerAccountId: selectedOwnerAccountId,
+                              recurringCadence: hasSilverTier ? selectedCadence : 'none',
+                              bufferHours: hasSilverTier ? (int.tryParse(bufferHoursController.text) ?? 0) : 0,
+                              trashDay: hasSilverTier ? selectedTrashDay : '',
                             );
 
                             if (isEditing) {
@@ -775,7 +1143,6 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                             }
                             if (context.mounted) {
                               Navigator.pop(context);
-                              await _loadProperties();
                             }
                           }
                         },
@@ -793,34 +1160,35 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                           final isFirstStep = currentStep == 0;
                           return Padding(
                             padding: const EdgeInsets.only(top: 32),
-                            child: Row(
+                            child: Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 FilledButton(
                                   onPressed: details.onStepContinue,
                                   style: FilledButton.styleFrom(
                                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                                   ),
-                                  child: Text(isLastStep ? 'Save Property' : 'Continue'),
+                                  child: Text(isLastStep ? l10n.savePropertyAction : l10n.continueAction),
                                 ),
-                                const SizedBox(width: 12),
                                 TextButton(
                                   onPressed: details.onStepCancel,
-                                  child: Text(isFirstStep ? 'Cancel' : 'Back'),
+                                  child: Text(isFirstStep ? l10n.cancelAction : l10n.backAction),
                                 ),
-                                if (isFirstStep) ...[
-                                  const Spacer(),
+                                if (isFirstStep) 
                                   OutlinedButton.icon(
                                     onPressed: () async {
                                       // Express Save Validation
                                       if (isSuperAdmin && selectedCompanyId.isEmpty) {
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Please select a company for this property.')),
+                                          SnackBar(content: Text(l10n.pleaseSelectCompanyError)),
                                         );
                                         return;
                                       }
                                       if (nameController.text.trim().isEmpty) {
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Property Name is required for Express Save.')),
+                                          SnackBar(content: Text(l10n.propertyNameRequiredError)),
                                         );
                                         return;
                                       }
@@ -848,6 +1216,10 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                                         cleaningInstructions: cleaningInstructionsController.text.trim(),
                                         instructionPhotos: instructionPhotos,
                                         checklists: checklists,
+                                        ownerAccountId: selectedOwnerAccountId,
+                                        recurringCadence: hasSilverTier ? selectedCadence : 'none',
+                                        bufferHours: hasSilverTier ? (int.tryParse(bufferHoursController.text) ?? 0) : 0,
+                                        trashDay: hasSilverTier ? selectedTrashDay : '',
                                       );
 
                                       if (isEditing) {
@@ -857,18 +1229,16 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                                       }
                                       if (context.mounted) {
                                         Navigator.pop(context);
-                                        await _loadProperties();
                                       }
                                     },
                                     icon: const Icon(Icons.flash_on, size: 18),
-                                    label: const Text('Express Save'),
+                                    label: Text(l10n.expressSaveAction),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppColors.primary,
                                       side: const BorderSide(color: AppColors.primary),
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                     ),
                                   ),
-                                ],
                               ],
                             ),
                           );
@@ -927,23 +1297,23 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     );
   }
 
-  void _showLimitDialog(BuildContext context, int limit) {
+  void _showLimitDialog(BuildContext context, int limit, AppLocalizations l10n) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Subscription Limit Reached'),
-        content: Text('Your current plan limits you to $limit properties. Please upgrade your subscription to add more properties.'),
+        title: Text(l10n.subscriptionLimitReachedTitle),
+        content: Text(l10n.subscriptionLimitReachedDesc(limit)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancelAction),
           ),
           FilledButton(
             onPressed: () {
               Navigator.pop(ctx);
               context.go('/admin/subscription');
             },
-            child: const Text('Upgrade Plan'),
+            child: Text(l10n.upgradePlanAction),
           ),
         ],
       ),
@@ -957,11 +1327,13 @@ class _PropertyCard extends StatelessWidget {
   final int index;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final String currencySymbol;
 
-  const _PropertyCard({required this.property, required this.index, required this.onEdit, required this.onDelete});
+  const _PropertyCard({required this.property, required this.index, required this.onEdit, required this.onDelete, this.currencySymbol = '\$'});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -991,7 +1363,9 @@ class _PropertyCard extends StatelessWidget {
                     border: Border.all(color: AppColors.teal.withValues(alpha: 0.3)),
                   ),
                   child: Text(
-                    property.propertyType.isEmpty ? 'House' : property.propertyType,
+                    property.propertyType.isEmpty 
+                        ? l10n.typeHouse 
+                        : (property.propertyType == 'Apartment' ? l10n.typeApartment : (property.propertyType == 'Other' ? l10n.typeOther : l10n.typeHouse)),
                     style: const TextStyle(color: AppColors.teal, fontSize: 11, fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -1016,7 +1390,7 @@ class _PropertyCard extends StatelessWidget {
             Wrap(
               spacing: 16,
               children: [
-                _InfoChip(icon: Icons.attach_money_rounded, label: '\$${property.cleaningFee.toStringAsFixed(0)} cleaning fee', color: AppColors.green),
+                _InfoChip(icon: Icons.payments_outlined, label: '$currencySymbol${property.cleaningFee.toStringAsFixed(0)} ${AppLocalizations.of(context)!.cleaningFeeSuffix}', color: AppColors.green),
                 if (property.size.isNotEmpty)
                   _InfoChip(icon: Icons.square_foot_rounded, label: property.size, color: AppColors.teal),
                 if (property.propertyManagement.isNotEmpty)
@@ -1034,11 +1408,11 @@ class _PropertyCard extends StatelessWidget {
                   if (property.ownerPhone.isNotEmpty)
                     _InfoChip(icon: Icons.phone_outlined, label: property.ownerPhone, color: AppColors.textSecondary),
                   if (property.lockBoxPin.isNotEmpty)
-                    _InfoChip(icon: Icons.lock_outline, label: 'Lock: ${property.lockBoxPin}', color: AppColors.amber),
+                    _InfoChip(icon: Icons.lock_outline, label: '${AppLocalizations.of(context)!.lockPrefix} ${property.lockBoxPin}', color: AppColors.amber),
                   if (property.housePin.isNotEmpty)
-                    _InfoChip(icon: Icons.home_outlined, label: 'House: ${property.housePin}', color: AppColors.amber),
+                    _InfoChip(icon: Icons.home_outlined, label: '${AppLocalizations.of(context)!.housePrefix} ${property.housePin}', color: AppColors.amber),
                   if (property.garagePin.isNotEmpty)
-                    _InfoChip(icon: Icons.garage_outlined, label: 'Garage: ${property.garagePin}', color: AppColors.amber),
+                    _InfoChip(icon: Icons.garage_outlined, label: '${AppLocalizations.of(context)!.garagePrefix} ${property.garagePin}', color: AppColors.amber),
                 ],
               ),
             ],

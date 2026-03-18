@@ -53,7 +53,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyD79YfgF2ru5Mqne5w5Gq9z2JINt0ORd_E',
-    appId: '1:941286930069:android:8b082501c4a61eb943cd9c',
+    appId: '1:941286930069:android:0114eba79694c1bd43cd9c',
     messagingSenderId: '941286930069',
     projectId: 'calbnb-71137',
     databaseURL: 'https://calbnb-71137-default-rtdb.firebaseio.com',
@@ -62,13 +62,13 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyB4UNHKffFOTtxZviWzaO9rO8QKP1lFDSs',
-    appId: '1:941286930069:ios:1ef87642155f5e0343cd9c',
+    appId: '1:941286930069:ios:9db47ea954ac2f3743cd9c',
     messagingSenderId: '941286930069',
     projectId: 'calbnb-71137',
     databaseURL: 'https://calbnb-71137-default-rtdb.firebaseio.com',
     storageBucket: 'calbnb-71137.firebasestorage.app',
-    iosClientId: '941286930069-k85cl5qtql6ecf2bnc6dcae14gfjsafa.apps.googleusercontent.com',
-    iosBundleId: 'com.calbnb.app.calbnb',
+    iosClientId: '941286930069-089ailfpl36obdlbddk08pnrod6b39kp.apps.googleusercontent.com',
+    iosBundleId: 'com.calbnb',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -79,7 +79,7 @@ class DefaultFirebaseOptions {
     databaseURL: 'https://calbnb-71137-default-rtdb.firebaseio.com',
     storageBucket: 'calbnb-71137.firebasestorage.app',
     iosClientId: '941286930069-k85cl5qtql6ecf2bnc6dcae14gfjsafa.apps.googleusercontent.com',
-    iosBundleId: 'com.calbnb.app.calbnb',
+    iosBundleId: 'com.calbnb',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

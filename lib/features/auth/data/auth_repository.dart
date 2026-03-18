@@ -152,6 +152,8 @@ class AuthController extends _$AuthController {
         return AppRole.cleaner;
       case 'Inspector':
         return AppRole.inspector;
+      case 'Property Owner':
+        return AppRole.owner;
       default:
         return AppRole.cleaner;
     }

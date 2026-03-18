@@ -1,0 +1,495 @@
+{
+  "@@locale": "en",
+  "appTitle": "CalBNB",
+  "loginTitle": "Login",
+  "loginSubtitle": "Access your portal.",
+  "emailHint": "User",
+  "passwordHint": "Password",
+  "loginButton": "Log In",
+  "dashboardTitle": "CalBNB",
+  "calendarTab": "Calendar",
+  "metricsTab": "Metrics",
+  "reportsTab": "Reports",
+  "companiesTab": "Companies",
+  "settingsTab": "Settings",
+  "logoutButton": "Log Out",
+  
+  "systemAdministration": "System Administration",
+  "mainMenu": "MAIN MENU",
+  "assignments": "Assignments",
+  "myProfile": "My Profile",
+  "teamInbox": "Team Inbox",
+  "myEarnings": "My Earnings",
+  "administration": "ADMINISTRATION",
+  "cleanings": "Cleanings",
+  "inspections": "Inspections",
+  "payroll": "Payroll",
+  "billingAndPlan": "Billing & Plan",
+  "advancedReports": "Advanced Reports",
+  "management": "MANAGEMENT",
+  "users": "Users",
+  "properties": "Properties",
+  
+  "monthlyCalendar": "Monthly Calendar",
+  "todayLabel": "Today",
+  "todaysActivities": "Today's Activities",
+  "noActivities": "No activities for this date.",
+  "filterByProperty": "Filter by Property",
+  "noPropertiesAvailable": "No properties available",
+  "loadingCalendarData": "Loading Calendar Data...",
+  "addBlockedDate": "Add Blocked Date",
+  "selectProperty": "Select Property",
+  "reasonPlaceholder": "Reason (e.g., Maintenance)",
+  "saveAction": "Save",
+  "cancelAction": "Cancel",
+  "allProperties": "All Properties",
+  
+  "profileUpdated": "Profile updated successfully.",
+  "errorOccurred": "Error:",
+  "pwdMinLength": "Password must be at least 6 characters.",
+  "pwdMismatch": "Passwords do not match.",
+  "pwdUpdated": "Password updated successfully.",
+  "accountInfo": "Account Information",
+  "usernameLabel": "Username",
+  "emailLabel": "Email",
+  "roleLabel": "Role",
+  "contactDetails": "Contact Details",
+  "phoneNumber": "Phone Number",
+  "address": "Address",
+  "emergencyContact": "Emergency Contact",
+  "emergencyHint": "Name & number",
+  "saveContactInfo": "Save Contact Info",
+  "changePassword": "Change Password",
+  "newPassword": "New Password",
+  "confirmNewPassword": "Confirm New Password",
+  "updatePassword": "Update Password",
+
+  "systemSettingsTitle": "System Settings",
+  "errorLoadingData": "Error loading data:",
+  "propertyOrderSaved": "Property order saved successfully.",
+  "errorSavingPropertyOrder": "Error saving property order:",
+  "currencySettings": "Currency Settings",
+  "platinumTier": "Platinum",
+  "currencySettingsDesc": "Set the currency used across payroll, earnings, and fees.",
+  "activeCurrency": "Active Currency",
+  "applyCurrency": "Apply Currency",
+  "currencyUpdatedTo": "Currency updated to",
+  "whiteLabelBranding": "White-Label Branding",
+  "diamondTier": "Diamond",
+  "whiteLabelDesc": "Upload your company logo to replace the CalBNB branding across the app.",
+  "chooseLogo": "Choose Logo",
+  "upload": "Upload",
+  "logoUpdated": "Logo updated!",
+  "logoRemoved": "Logo removed.",
+  "remove": "Remove",
+  "propertyDisplayOrder": "Property Display Order",
+  "propertyDisplayOrderDesc": "Drag and drop the properties below to rearrange how they appear in the system. Click 'Save Order' when finished.",
+  "saveOrder": "Save Order",
+
+  "usersTitle": "Users",
+  "userLimitReachedPrefix": "User limit reached",
+  "userLimitReachedSuffix": "Upgrade your plan to add more users.",
+  "upgradeAction": "Upgrade",
+  "addUserAction": "Add User",
+  "searchUsersHint": "Search by name, email or phone...",
+  "allRolesFilter": "All Roles",
+  "ofKeyword": "of",
+  "usersKeyword": "users",
+  "noUsersFound": "No users found",
+  "tryDifferentSearch": "Try a different search or filter",
+  "addFirstUserAbove": "Add your first user above",
+  "deleteUserTitle": "Delete User",
+  "deletePromptPrefix": "Delete",
+  "deletePromptSuffix": "? This action cannot be undone.",
+  "deleteAction": "Delete",
+  "editUserTitle": "Edit User",
+  "createNewUserTitle": "Create New User",
+  "updateRoleDetails": "Update role or contact details.",
+  "registerNewUser": "Register a new user in the system.",
+  "emailAddressLabel": "Email Address",
+  "passwordLabel": "Password",
+  "displayNameLabel": "Display Name",
+  "payRateLabel": "Pay Rate",
+  "saveChanges": "Save Changes",
+  "createUserAction": "Create User",
+
+  "todaysCleaningsTitle": "Today''s Cleanings",
+
+  "ownerPortalTitle": "Owner Portal",
+  "welcomeMessage": "Welcome, {username}",
+  "@welcomeMessage": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "assignedPropertiesCount": "You have {count} properties assigned.",
+  "@assignedPropertiesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noAssignedPropertiesDesc": "You do not have any properties assigned to your account yet.",
+  "viewOnMapsTooltip": "View on Maps",
+  "cleaningActivityTitle": "Cleaning Activity",
+  "noCleaningsScheduledFor": "No cleanings scheduled for {month}",
+  "@noCleaningsScheduledFor": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingActivity": "Error loading activity: {error}",
+  "@errorLoadingActivity": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notePrefix": "Note: {note}",
+  "@notePrefix": {
+    "placeholders": {
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "incidentsReportedCount": "{count} Incident(s) Reported",
+  "@incidentsReportedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "inspectorFindingsLabel": "Inspector Findings:",
+  "checkoutEvidenceTitle": "Checkout Evidence",
+
+  "checkoutVerificationTitle": "Checkout Verification",
+  "requiredChecklistTitle": "Required Checklist",
+  "verifyTasksDesc": "Please verify the following tasks have been completed before finishing this job.",
+  "photoEvidenceRequiredTitle": "Photo Evidence Required",
+  "capturePhotosDesc": "Please capture at least 1 (up to 3) photos to prove completion.",
+  "completeJobAction": "Complete Job",
+  "myPendingAssignmentsTitle": "My Pending Assignments",
+  "noPendingAssignmentsDesc": "No pending assignments.",
+  "genericError": "Error: {error}",
+  "@genericError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "activeJobBadge": "ACTIVE JOB",
+  "managerNotesLabel": "Manager Notes",
+  "cleaningInstructionsLabel": "Cleaning Instructions",
+  "reportIncidentAction": "Report Incident",
+  "finishJobAction": "Finish Job",
+  "statusAssigned": "Assigned",
+  "statusInProgress": "In Progress",
+  "statusPendingInspection": "Pending Inspection",
+  "statusFixNeeded": "Fix Needed",
+  "statusApprovedCompleted": "Approved (Completed)",
+  "checkoutDateLabel": "Checkout: {date}",
+  "@checkoutDateLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "assignedDateLabel": "Assigned: {date}",
+  "@assignedDateLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "inspectorFindingsFixLabel": "⚠ Inspector Findings requiring fixing:",
+  "startJobAction": "Start Job",
+  "descriptionLabel": "Description",
+  "addPhotoAction": "Add Photo",
+  "submitReportAction": "Submit Report",
+
+  "todaysInspectionsTitle": "Today''s Inspections",
+  "pendingInspectionsTitle": "Pending Inspections",
+  "noPendingInspectionsDesc": "No pending inspections.",
+  "statusWaitingForCleaner": "Waiting for Cleaner...",
+  "statusReadyForInspection": "Ready for Inspection",
+  "statusCleanerFixingIssues": "Cleaner is fixing issues...",
+  "statusApproved": "Approved",
+  "cleanerLabel": "Cleaner: {name}",
+  "@cleanerLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finishedAtLabel": "Finished at: {date}",
+  "@finishedAtLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "checkoutEvidenceLabel": "Checkout Evidence:",
+  "reportedIncidentsLabel": "Reported Incidents:",
+  "inspectorFindingsNotesLabel": "Inspector Findings / Notes:",
+  "noTextObservationDesc": "No text observation",
+  "declineFixNeededAction": "Decline (Fix Needed)",
+  "approveAction": "Approve",
+  "addApprovalNotesTitle": "Add Approval Notes (Optional)",
+  "reportFindingsFixNeededTitle": "Report Findings (Fix Needed)",
+  "notesLabel": "Notes",
+  "descriptionOfIssuesLabel": "Description of issues",
+  "provideTextOrPhotoError": "Please provide text or photo to decline",
+  "approveJobAction": "Approve Job",
+  "sendToFixAction": "Send to Fix",
+
+  "payrollDashboardTitle": "Payroll Dashboard",
+  "weeklyEarningsTitle": "Weekly Earnings",
+  "noApprovedJobsThisWeek": "No approved cleaning jobs for this week.",
+  "unknownCleanerLabel": "Unknown Cleaner",
+  "jobsCompletedLabel": "{count} jobs completed",
+  "@jobsCompletedLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "teamInboxTitle": "Team Inbox",
+  "noActiveCompanyFound": "No active company found.",
+  "markAllAsReadAction": "Mark all as read",
+  "noMessagesYetDesc": "No messages yet. Say hello!",
+  "typeMessageHint": "Type a message…",
+
+  "advancedReportsTitle": "Advanced Reports",
+  "advancedAnalyticsTitle": "Advanced Analytics",
+  "diamondTierReportingLabel": "Diamond-Tier Reporting · {year}",
+  "@diamondTierReportingLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "totalCleaningsLabel": "Total Cleanings",
+  "totalRevenueLabel": "Total Revenue",
+  "totalPayrollLabel": "Total Payroll",
+  "netMarginLabel": "Net Margin",
+  "monthlyCleaningsTitle": "Monthly Cleanings",
+  "monthlyCleaningsDesc": "Completed and approved cleans per month",
+  "noCleaningDataForYear": "No cleaning data for this year.",
+  "revenueVsPayrollTitle": "Revenue vs Payroll",
+  "revenueVsPayrollDesc": "Monthly comparison of gross revenue and total payroll cost",
+  "revenueLabel": "Revenue",
+  "payrollLabel": "Payroll",
+  "cleanerPerformanceTitle": "Cleaner Performance",
+  "cleanerPerformanceDesc": "Revenue generated vs payroll cost per cleaner",
+  "noCleanerDataForYear": "No cleaner data for this year.",
+  "cleanerHeader": "Cleaner",
+  "jobsHeader": "Jobs",
+  "revenueHeader": "Revenue",
+  "payrollHeader": "Payroll",
+  "marginHeader": "Margin",
+
+  "myEarningsTitle": "My Earnings",
+  "thisWeekTitle": "This Week",
+  "lastWeekTitle": "Last Week",
+  "propertiesCleanedLabel": "{count} properties cleaned",
+  "@propertiesCleanedLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "comparedToLastWeekLabel": "{diff} compared to last week",
+  "@comparedToLastWeekLabel": {
+    "placeholders": {
+      "diff": {
+        "type": "String"
+      }
+    }
+  },
+  "thisWeeksDetailsTitle": "This Week's Details",
+  "noCompletedCleaningsThisWeekDesc": "No completed cleanings this week.",
+
+  "propertiesTitle": "Properties",
+  "generateDummyProperty": "Generate Dummy Property (Test)",
+  "addPropertyAction": "Add Property",
+  "limitReached": "Limit Reached",
+  "searchPropertiesHint": "Search by name, address, owner, or management...",
+  "cityLabel": "City",
+  "allCitiesFilter": "All Cities",
+  "propertyManagementLabel": "Property Management",
+  "allFilter": "All",
+  "propertiesKeyword": "properties",
+  "noPropertiesFound": "No properties found",
+  "tryAdjustingSearchFilters": "Try adjusting your search or filters",
+  "deletePropertyTitle": "Delete Property",
+  "deletePropertyPrompt": "Delete \"{propertyName}\"? This cannot be undone.",
+  "@deletePropertyPrompt": {
+    "placeholders": {
+      "propertyName": {
+        "type": "String"
+      }
+    }
+  },
+  "stepBasic": "Basic",
+  "stepLocationDetails": "Location & Details",
+  "stepOwnerMgmt": "Owner & Mgmt",
+  "stepAccessCleaning": "Access & Cleaning",
+  "assignToCompanyLabel": "Assign to Company *",
+  "selectCompanyHint": "Select company",
+  "companyLabel": "Company",
+  "propertyNameLabel": "Property Name",
+  "propertyTypeLabel": "Property Type",
+  "typeHouse": "House",
+  "typeApartment": "Apartment",
+  "typeOther": "Other",
+  "streetAddressLabel": "Street Address",
+  "stateProvinceLabel": "State/Province",
+  "zipPostalCodeLabel": "Zip/Postal Code",
+  "countryLabel": "Country",
+  "cleaningFeeLabel": "Cleaning Fee ($)",
+  "sizeLabel": "Size (e.g. 1500 sqft)",
+  "schedulingSettingsLabel": "Scheduling Settings (Silver+)",
+  "recurringCleanCadenceLabel": "Recurring Clean Cadence",
+  "cadenceNone": "None (Ad-hoc)",
+  "cadenceWeekly": "Weekly",
+  "cadenceBiWeekly": "Bi-Weekly",
+  "cadenceMonthly": "Monthly",
+  "trashDayLabel": "Trash Day",
+  "trashDayNone": "None",
+  "trashDayMonday": "Monday",
+  "trashDayTuesday": "Tuesday",
+  "trashDayWednesday": "Wednesday",
+  "trashDayThursday": "Thursday",
+  "trashDayFriday": "Friday",
+  "trashDaySaturday": "Saturday",
+  "trashDaySunday": "Sunday",
+  "bufferHoursLabel": "Buffer Hours",
+  "bufferHoursHint": "Hours required before next checkin",
+  "linkedOwnerAccountLabel": "Linked Owner Account (Optional)",
+  "linkedOwnerAccountHelper": "Links this property to a specific Property Owner dashboard",
+  "noneUnassigned": "None / Unassigned",
+  "ownerNameLegacyLabel": "Owner Name (Legacy)",
+  "propertyManagementCompanyLabel": "Property Management Company",
+  "lockBoxPinLabel": "Lock Box Pin",
+  "housePinLabel": "House Pin",
+  "garagePinLabel": "Garage Pin",
+  "cleaningInstructionsLabel": "Cleaning Instructions",
+  "customCleaningChecklistsTitle": "Custom Cleaning Checklists",
+  "addChecklistItemHint": "Add a new mandatory checklist item...",
+  "addChecklistItemTooltip": "Add Checklist Item",
+  "addInstructionPhotoAction": "Add Instruction Photo",
+  "editPropertyTitle": "Edit Property",
+  "addNewPropertyTitle": "Add New Property",
+  "setupPropertyDetailsDesc": "Complete the steps below to setup the property details.",
+  "savePropertyAction": "Save Property",
+  "continueAction": "Continue",
+  "backAction": "Back",
+  "pleaseSelectCompanyError": "Please select a company for this property.",
+  "expressSaveAction": "Express Save",
+  "propertyNameRequiredError": "Property Name is required for Express Save.",
+  "subscriptionLimitReachedTitle": "Subscription Limit Reached",
+  "subscriptionLimitReachedDesc": "Your current plan limits you to {limit} properties. Please upgrade your subscription to add more properties.",
+  "@subscriptionLimitReachedDesc": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "upgradePlanAction": "Upgrade Plan",
+  "cleaningFeeSuffix": "cleaning fee",
+  "lockPrefix": "Lock:",
+  "housePrefix": "House:",
+  "garagePrefix": "Garage:",
+
+  "englishToggle": "English (US)",
+  "spanishToggle": "Español (ES)",
+
+  "confirmPlanChangeTitle": "Confirm Plan Change",
+  "confirmPlanChangeDesc": "Are you sure you want to change your subscription to the {planName} plan?",
+  "@confirmPlanChangeDesc": {
+    "placeholders": {
+      "planName": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmAction": "Confirm",
+  "successfullyUpdatedPlan": "Successfully updated plan to {planName}",
+  "@successfullyUpdatedPlan": {
+    "placeholders": {
+      "planName": {
+        "type": "String"
+      }
+    }
+  },
+  "errorUpdatingPlan": "Error updating plan: {error}",
+  "@errorUpdatingPlan": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noActiveCompanySelected": "No active company selected.",
+  "companyDataNotFound": "Company data not found.",
+  "currentPlanLabel": "CURRENT PLAN",
+  "planSuffix": "Plan",
+  "activeUsersLabel": "Active Users",
+  "availablePlansTitle": "Available Plans",
+  "availablePlansDesc": "Choose the perfect plan for your business needs. Upgrade or downgrade at any time.",
+  "unlimitedCount": "/ Unlimited",
+  "perMonthLabel": "/ month",
+  "currentPlanButton": "Current Plan",
+  "downgradeAction": "Downgrade",
+  "mostPopularBadge": "MOST POPULAR",
+
+  "planFeatureBronze1": "Up to 5 Properties",
+  "planFeatureBronze2": "Up to 4 Users (1 Admin, 3 Cleaners)",
+  "planFeatureBronze3": "Mobile App Access",
+  "planFeatureBronze4": "Photo Evidence (3/clean)",
+  "planFeatureBronze5": "Basic Property Data",
+
+  "planFeatureSilver1": "Up to 15 Properties",
+  "planFeatureSilver2": "Up to 10 Users",
+  "planFeatureSilver3": "Team Roles (Cleaner vs Manager)",
+
+  "planFeatureGold1": "Up to 30 Properties",
+  "planFeatureGold2": "Up to 18 Users",
+  "planFeatureGold3": "Payroll Module & Reports",
+  "planFeatureGold4": "Owner Portal",
+  "planFeatureGold5": "Inspector Role",
+
+  "planFeaturePlatinum1": "Up to 60 Properties",
+  "planFeaturePlatinum2": "Up to 39 Users",
+  "planFeaturePlatinum3": "Multi-Currency Billing",
+
+  "planFeatureDiamond1": "Up to 100 Properties",
+  "planFeatureDiamond2": "Up to 106 Users",
+  "planFeatureDiamond3": "White Labeling",
+  "planFeatureDiamond4": "Advanced Analytics",
+  "planFeatureDiamond5": "Priority WhatsApp Support",
+
+  "planFeatureFree1": "Up to 2 Properties",
+  "planFeatureFree2": "1 User Only (Admin)",
+  "planFeatureFree3": "Basic Calendar View",
+  "planFeatureFree4": "Standard Checklists",
+  "planFeatureFree5": "Manual Status Updates"
+}

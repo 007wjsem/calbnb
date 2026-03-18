@@ -4,23 +4,37 @@ import '../../auth/domain/user.dart';
 import '../../../core/constants/roles.dart';
 
 import 'package:firebase_auth/firebase_auth.dart' as auth;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+final userRepositoryProvider = Provider((ref) => UserRepository());
 
 class UserRepository {
   final DatabaseReference _ref = FirebaseDatabase.instance.ref('users');
 
   Future<List<User>> fetchAll() async {
     final snapshot = await _ref.get();
-    final Map<dynamic, dynamic>? data = snapshot.value as Map<dynamic, dynamic>?;
-    if (data == null) return [];
-    
+    final raw = snapshot.value;
+    if (raw == null) return [];
+
+    // Firebase on iOS can return a List when keys happen to be sequential integers.
+    // Normalise to an iterable of (key, value) entries regardless of the container type.
+    Iterable<MapEntry<dynamic, dynamic>> entries;
+    if (raw is Map) {
+      entries = raw.entries;
+    } else if (raw is List) {
+      entries = raw.asMap().entries;
+    } else {
+      return [];
+    }
+
     // Filter out soft-deleted users from being returned in fetchAll
-    final activeUsers = data.entries.where((e) {
-      final value = e.value as Map<dynamic, dynamic>;
-      return value['isActive'] != false;
+    final activeEntries = entries.where((e) {
+      if (e.value is! Map) return false;
+      return (e.value as Map)['isActive'] != false;
     }).toList();
 
-    return activeUsers.map((e) {
-      final value = e.value as Map<dynamic, dynamic>;
+    return activeEntries.map((e) {
+      final value = e.value as Map;
       return User(
         id: e.key.toString(),
         username: value['username']?.toString() ?? 'Unknown',
@@ -109,6 +123,8 @@ class UserRepository {
         return AppRole.cleaner;
       case 'Inspector':
         return AppRole.inspector;
+      case 'Property Owner':
+        return AppRole.owner;
       default:
         return AppRole.cleaner;
     }

@@ -7,6 +7,8 @@ import '../../admin/presentation/property_management_screen.dart';
 import '../../admin/data/property_repository.dart';
 import '../../admin/domain/property.dart';
 import 'package:intl/intl.dart';
+import '../../company/presentation/currency_provider.dart';
+import 'package:calbnb/l10n/app_localizations.dart';
 
 class CleanerEarningsView extends ConsumerWidget {
   const CleanerEarningsView({super.key});
@@ -23,7 +25,7 @@ class CleanerEarningsView extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'My Earnings',
+            AppLocalizations.of(context)!.myEarningsTitle,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: const Color(0xFF0D2E63)
@@ -40,7 +42,7 @@ class CleanerEarningsView extends ConsumerWidget {
                       return const Center(child: CircularProgressIndicator());
                     }
                     if (snap.hasError) {
-                      return Center(child: Text('Error loading properties: ${snap.error}'));
+                      return Center(child: Text(AppLocalizations.of(context)!.genericError(snap.error.toString())));
                     }
 
                     final properties = snap.data ?? [];
@@ -98,6 +100,7 @@ class CleanerEarningsView extends ConsumerWidget {
 
                     final difference = currentWeekTotal - previousWeekTotal;
                     final isPositive = difference >= 0;
+                    final currencySymbol = ref.watch(currencySymbolProvider);
 
                     return Column(
                       children: [
@@ -106,23 +109,25 @@ class CleanerEarningsView extends ConsumerWidget {
                           children: [
                             Expanded(
                               child: _SummaryCard(
-                                title: 'This Week',
+                                title: AppLocalizations.of(context)!.thisWeekTitle,
                                 amount: currentWeekTotal,
-                                subtitle: '${currentWeekJobs.length} properties cleaned',
+                                subtitle: AppLocalizations.of(context)!.propertiesCleanedLabel(currentWeekJobs.length),
                                 icon: Icons.attach_money,
                                 color: Colors.green.shade600,
                                 isPrimary: true,
+                                currencySymbol: currencySymbol,
                               ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
                               child: _SummaryCard(
-                                title: 'Last Week',
+                                title: AppLocalizations.of(context)!.lastWeekTitle,
                                 amount: previousWeekTotal,
-                                subtitle: '${previousWeekJobs.length} properties cleaned',
+                                subtitle: AppLocalizations.of(context)!.propertiesCleanedLabel(previousWeekJobs.length),
                                 icon: Icons.history,
                                 color: Colors.blueGrey,
                                 isPrimary: false,
+                                currencySymbol: currencySymbol,
                               ),
                             ),
                           ],
@@ -140,7 +145,7 @@ class CleanerEarningsView extends ConsumerWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                '${isPositive ? "+" : ""}\$${difference.toStringAsFixed(2)} compared to last week',
+                                AppLocalizations.of(context)!.comparedToLastWeekLabel('${isPositive ? "+" : ""}$currencySymbol${difference.toStringAsFixed(2)}'),
                                 style: TextStyle(
                                   color: isPositive ? Colors.green.shade700 : Colors.red.shade700,
                                   fontWeight: FontWeight.bold
@@ -151,11 +156,11 @@ class CleanerEarningsView extends ConsumerWidget {
                         ],
 
                         const SizedBox(height: 32),
-                        const Align(
+                        Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            'This Week\'s Details',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                            AppLocalizations.of(context)!.thisWeeksDetailsTitle,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -163,7 +168,7 @@ class CleanerEarningsView extends ConsumerWidget {
                         // Detail List
                         Expanded(
                           child: currentWeekJobs.isEmpty 
-                              ? const Center(child: Text('No completed cleanings this week.', style: TextStyle(color: Colors.grey, fontSize: 16)))
+                              ? Center(child: Text(AppLocalizations.of(context)!.noCompletedCleaningsThisWeekDesc, style: const TextStyle(color: Colors.grey, fontSize: 16)))
                               : ListView.builder(
                                   itemCount: currentWeekJobs.length,
                                   itemBuilder: (context, index) {
@@ -183,7 +188,7 @@ class CleanerEarningsView extends ConsumerWidget {
                                         title: Text(job.propertyId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                         subtitle: Text(DateFormat.yMMMEd().format(DateTime.parse(job.date))),
                                         trailing: Text(
-                                          '\$${earning.toStringAsFixed(2)}',
+                                          '$currencySymbol${earning.toStringAsFixed(2)}',
                                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700, fontSize: 18),
                                         ),
                                       ),
@@ -213,6 +218,7 @@ class _SummaryCard extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool isPrimary;
+  final String currencySymbol;
 
   const _SummaryCard({
     required this.title,
@@ -221,6 +227,7 @@ class _SummaryCard extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.isPrimary,
+    required this.currencySymbol,
   });
 
   @override
@@ -247,7 +254,7 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            '\$${amount.toStringAsFixed(2)}',
+            '$currencySymbol${amount.toStringAsFixed(2)}',
             style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: color, letterSpacing: -1),
           ),
           const SizedBox(height: 8),

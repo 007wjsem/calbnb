@@ -13,7 +13,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.calbnb.app.calbnb</string>
+	<string>com.calbnb</string>
 	<key>PROJECT_ID</key>
 	<string>calbnb-71137</string>
 	<key>STORAGE_BUCKET</key>

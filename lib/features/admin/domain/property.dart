@@ -21,6 +21,13 @@ class Property {
   final String cleaningInstructions;
   final List<String> instructionPhotos; // Base64 encoded
   final List<String> checklists;
+  final String? ownerAccountId; // Links to a User with AppRole.owner
+  final String debugRaw;
+
+  // Silver-tier scheduling fields
+  final String recurringCadence;  // 'none', 'weekly', 'biweekly', 'monthly'
+  final int bufferHours;          // Buffer hours required between checkout and next checkin
+  final String trashDay;          // e.g. 'Monday', 'Wednesday', '' = none
 
   Property({
     required this.id,
@@ -45,6 +52,11 @@ class Property {
     this.cleaningInstructions = '',
     this.instructionPhotos = const [],
     this.checklists = const [],
+    this.ownerAccountId,
+    this.debugRaw = '',
+    this.recurringCadence = 'none',
+    this.bufferHours = 0,
+    this.trashDay = '',
   });
 
   Property copyWith({
@@ -70,6 +82,10 @@ class Property {
     String? cleaningInstructions,
     List<String>? instructionPhotos,
     List<String>? checklists,
+    String? ownerAccountId,
+    String? recurringCadence,
+    int? bufferHours,
+    String? trashDay,
   }) {
     return Property(
       id: id ?? this.id,
@@ -94,6 +110,11 @@ class Property {
       cleaningInstructions: cleaningInstructions ?? this.cleaningInstructions,
       instructionPhotos: instructionPhotos ?? this.instructionPhotos,
       checklists: checklists ?? this.checklists,
+      ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+      debugRaw: this.debugRaw,
+      recurringCadence: recurringCadence ?? this.recurringCadence,
+      bufferHours: bufferHours ?? this.bufferHours,
+      trashDay: trashDay ?? this.trashDay,
     );
   }
 }

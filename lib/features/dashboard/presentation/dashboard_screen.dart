@@ -9,9 +9,13 @@ import 'inspector_dashboard.dart';
 import '../../../core/constants/roles.dart';
 import '../../../core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:calbnb/l10n/app_localizations.dart';
 import '../../company/presentation/company_switcher.dart';
 import '../../settings/presentation/locale_provider.dart';
+import '../../company/data/company_repository.dart';
+import '../../company/domain/subscription.dart';
+import '../../inbox/data/inbox_repository.dart';
+import 'dart:convert';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -44,7 +48,21 @@ class DashboardWrapper extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${user.role == AppRole.superAdmin ? 'System' : l10n.appTitle} - ${user.role.displayName} Dashboard'),
+        title: Builder(builder: (context) {
+          // Diamond White-Label: render custom logo if available
+          if (user.role != AppRole.superAdmin) {
+            final companyId = user.activeCompanyId;
+            if (companyId != null && companyId.isNotEmpty) {
+              final companyAsync = ref.watch(companyProvider(companyId));
+              final company = companyAsync.valueOrNull;
+              final logoBase64 = company?.companyLogoBase64;
+              if (company?.tier == SubscriptionTier.diamond && logoBase64 != null && logoBase64.isNotEmpty) {
+                return Image.memory(base64Decode(logoBase64), height: 36, fit: BoxFit.contain);
+              }
+            }
+          }
+          return Text('${user.role == AppRole.superAdmin ? 'System' : l10n.appTitle} - ${user.role.displayName} Dashboard');
+        }),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -56,12 +74,12 @@ class DashboardWrapper extends ConsumerWidget {
         ],
       ),
       drawer: isDesktop ? null : Drawer(
-        child: _buildSidebar(context, user, isDesktop: false),
+        child: _buildSidebar(context, ref, user, isDesktop: false),
       ),
       body: isDesktop
           ? Row(
               children: [
-                _buildSidebar(context, user, isDesktop: true),
+                _buildSidebar(context, ref, user, isDesktop: true),
                 Expanded(
                   child: _buildMainContent(user),
                 ),
@@ -85,7 +103,7 @@ class DashboardWrapper extends ConsumerWidget {
     }
     return const CalendarDashboard();
   }
-  Widget _buildSidebar(BuildContext context, User user, {required bool isDesktop}) {
+  Widget _buildSidebar(BuildContext context, WidgetRef ref, User user, {required bool isDesktop}) {
     final currentRoute = GoRouterState.of(context).matchedLocation;
     final l10n = AppLocalizations.of(context)!;
     
@@ -111,7 +129,7 @@ class DashboardWrapper extends ConsumerWidget {
                 ],
                 Expanded(
                   child: Text(
-                    user.role == AppRole.superAdmin ? 'System Administration' : l10n.appTitle,
+                    user.role == AppRole.superAdmin ? l10n.systemAdministration : l10n.appTitle,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -164,20 +182,24 @@ class DashboardWrapper extends ConsumerWidget {
           ),
           const CompanySwitcher(),
           const SizedBox(height: 8),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'MAIN MENU',
-                style: TextStyle(color: AppColors.sidebarMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.4),
+                l10n.mainMenu,
+                style: const TextStyle(color: AppColors.sidebarMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.4),
               ),
             ),
           ),
           if (user.role == AppRole.cleaner || user.role == AppRole.inspector) ...[
             _SidebarItem(
               icon: Icons.assignment_rounded,
-              title: 'Assignments',
+              title: l10n.assignments,
               isSelected: currentRoute == '/assignments',
               onTap: () {
                 if (!isDesktop) Navigator.pop(context);
@@ -196,17 +218,38 @@ class DashboardWrapper extends ConsumerWidget {
           ),
           _SidebarItem(
             icon: Icons.person_outline_rounded,
-            title: 'My Profile',
+            title: l10n.myProfile,
             isSelected: currentRoute == '/profile',
             onTap: () {
               if (!isDesktop) Navigator.pop(context);
               context.go('/profile');
             },
           ),
+          // ── Team Inbox (Silver+) ─────────────────────────────────────
+          Builder(builder: (context) {
+            final companyId = user.activeCompanyId;
+            if (companyId == null || companyId.isEmpty) return const SizedBox.shrink();
+            final companyAsync = ref.watch(companyProvider(companyId));
+            final company = companyAsync.valueOrNull;
+            if (company == null || company.tier.index < SubscriptionTier.silver.index) return const SizedBox.shrink();
+            // Show unread count badge
+            final unreadAsync = ref.watch(inboxUnreadCountProvider((companyId: companyId, userId: user.id)));
+            final unread = unreadAsync.valueOrNull ?? 0;
+            return _SidebarItem(
+              icon: Icons.chat_bubble_outline_rounded,
+              title: l10n.teamInbox,
+              isSelected: currentRoute == '/inbox',
+              badge: unread > 0 ? '  $unread' : null,
+              onTap: () {
+                if (!isDesktop) Navigator.pop(context);
+                context.go('/inbox');
+              },
+            );
+          }),
           if (user.role == AppRole.cleaner) ...[
             _SidebarItem(
               icon: Icons.monetization_on_outlined,
-              title: 'My Earnings',
+              title: l10n.myEarnings,
               isSelected: currentRoute == '/earnings',
               onTap: () {
                 if (!isDesktop) Navigator.pop(context);
@@ -216,19 +259,19 @@ class DashboardWrapper extends ConsumerWidget {
           ],
           if (user.role.displayName == 'Super Admin' || user.role.displayName == 'Administrator') ...[
             const SizedBox(height: 16),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'ADMINISTRATION',
-                  style: TextStyle(color: AppColors.sidebarMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.4),
+                  l10n.administration,
+                  style: const TextStyle(color: AppColors.sidebarMuted, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.4),
                 ),
               ),
             ),
             _SidebarItem(
               icon: Icons.cleaning_services_rounded,
-              title: 'Cleanings',
+              title: l10n.cleanings,
               isSelected: currentRoute == '/admin/cleanings',
               onTap: () {
                 if (!isDesktop) Navigator.pop(context);
@@ -237,7 +280,7 @@ class DashboardWrapper extends ConsumerWidget {
             ),
             _SidebarItem(
               icon: Icons.fact_check_rounded,
-              title: 'Inspections',
+              title: l10n.inspections,
               isSelected: currentRoute == '/admin/inspections',
               onTap: () {
                 if (!isDesktop) Navigator.pop(context);
@@ -246,7 +289,7 @@ class DashboardWrapper extends ConsumerWidget {
             ),
             _SidebarItem(
               icon: Icons.payments_rounded,
-              title: 'Payroll',
+              title: l10n.payroll,
               isSelected: currentRoute == '/admin/payroll',
               onTap: () {
                 if (!isDesktop) Navigator.pop(context);
@@ -264,21 +307,39 @@ class DashboardWrapper extends ConsumerWidget {
             ),
             _SidebarItem(
               icon: Icons.credit_card_outlined,
-              title: 'Billing & Plan',
+              title: l10n.billingAndPlan,
               isSelected: currentRoute == '/admin/subscription',
               onTap: () {
                 if (!isDesktop) Navigator.pop(context);
                 context.go('/admin/subscription');
               },
             ),
+            // Advanced Reports (Diamond only)
+            Builder(builder: (context) {
+              final companyId = user.activeCompanyId;
+              if (user.role == AppRole.superAdmin || companyId == null || companyId.isEmpty) return const SizedBox.shrink();
+              final companyAsync = ref.watch(companyProvider(companyId));
+              final company = companyAsync.valueOrNull;
+              if (company?.tier != SubscriptionTier.diamond) return const SizedBox.shrink();
+              return _SidebarItem(
+                icon: Icons.analytics_outlined,
+                title: l10n.advancedReports,
+                isSelected: currentRoute == '/admin/reports',
+                badge: '💎',
+                onTap: () {
+                  if (!isDesktop) Navigator.pop(context);
+                  context.go('/admin/reports');
+                },
+              );
+            }),
             const SizedBox(height: 16),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
-                  'MANAGEMENT',
-                  style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                  l10n.management,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2),
                 ),
               ),
             ),
@@ -295,7 +356,7 @@ class DashboardWrapper extends ConsumerWidget {
             ],
             _SidebarItem(
               icon: Icons.people_alt_rounded,
-              title: 'Users',
+              title: l10n.users,
               isSelected: currentRoute == '/admin/users',
               onTap: () {
                 if (!isDesktop) Navigator.pop(context);
@@ -304,7 +365,7 @@ class DashboardWrapper extends ConsumerWidget {
             ),
             _SidebarItem(
               icon: Icons.home_work_rounded,
-              title: 'Properties',
+              title: l10n.properties,
               isSelected: currentRoute == '/admin/properties',
               onTap: () {
                 if (!isDesktop) Navigator.pop(context);
@@ -312,6 +373,10 @@ class DashboardWrapper extends ConsumerWidget {
               },
             ),
           ],
+                ],
+              ),
+            ),
+          ),
           
           // Language Switcher (Bottom)
           Padding(
@@ -340,7 +405,7 @@ class DashboardWrapper extends ConsumerWidget {
                         Icon(Icons.language, color: isSpanish ? AppColors.amber : Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          isSpanish ? 'English (US)' : 'Español (ES)',
+                          isSpanish ? l10n.englishToggle : l10n.spanishToggle,
                           style: TextStyle(
                             color: isSpanish ? AppColors.amber : Colors.white,
                             fontWeight: FontWeight.w600,
@@ -365,12 +430,14 @@ class _SidebarItem extends StatelessWidget {
   final String title;
   final bool isSelected;
   final VoidCallback onTap;
+  final String? badge;
 
   const _SidebarItem({
     required this.icon,
     required this.title,
     required this.isSelected,
     required this.onTap,
+    this.badge,
   });
 
   @override
@@ -396,14 +463,17 @@ class _SidebarItem extends StatelessWidget {
                   size: 20,
                 ),
                 const SizedBox(width: 14),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : AppColors.sidebarText,
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    fontSize: 14,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : AppColors.sidebarText,
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                      fontSize: 14,
+                    ),
                   ),
                 ),
+                if (badge != null) Text(badge!, style: const TextStyle(fontSize: 13)),
               ],
             ),
           ),

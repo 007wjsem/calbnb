@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../../core/theme/app_colors.dart';
+import 'package:calbnb/l10n/app_localizations.dart';
+import 'package:go_router/go_router.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -54,13 +56,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully.'), backgroundColor: Colors.green),
+          SnackBar(content: Text(AppLocalizations.of(context)!.profileUpdated), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('${AppLocalizations.of(context)!.errorOccurred} $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -73,13 +75,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirmPwd = _confirmPasswordCtrl.text;
     if (newPwd.isEmpty || newPwd.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password must be at least 6 characters.'), backgroundColor: Colors.orange),
+        SnackBar(content: Text(AppLocalizations.of(context)!.pwdMinLength), backgroundColor: Colors.orange),
       );
       return;
     }
     if (newPwd != confirmPwd) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match.'), backgroundColor: Colors.orange),
+        SnackBar(content: Text(AppLocalizations.of(context)!.pwdMismatch), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -90,13 +92,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _confirmPasswordCtrl.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password updated successfully.'), backgroundColor: Colors.green),
+          SnackBar(content: Text(AppLocalizations.of(context)!.pwdUpdated), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('${AppLocalizations.of(context)!.errorOccurred} $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -163,9 +165,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final user = ref.watch(authControllerProvider);
     if (user == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
+    final l10n = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile'),
+        title: Text(l10n.myProfile),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/');
+            }
+          },
+        ),
         foregroundColor: Colors.white,
           backgroundColor: AppColors.sidebarBg,
       ),
@@ -209,21 +223,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                   // Read-only account info
                   _sectionCard(
-                    title: 'Account Information',
+                    title: l10n.accountInfo,
                     children: [
-                      _readOnlyField('Username', user.username, icon: Icons.person_outline),
-                      _readOnlyField('Email', user.email, icon: Icons.email_outlined),
-                      _readOnlyField('Role', user.role.displayName, icon: Icons.badge_outlined),
+                      _readOnlyField(l10n.usernameLabel, user.username, icon: Icons.person_outline),
+                      _readOnlyField(l10n.emailLabel, user.email, icon: Icons.email_outlined),
+                      _readOnlyField(l10n.roleLabel, user.role.displayName, icon: Icons.badge_outlined),
                     ],
                   ),
 
                   // Editable contact info
                   _sectionCard(
-                    title: 'Contact Details',
+                    title: l10n.contactDetails,
                     children: [
-                      _editableField('Phone Number', _phoneCtrl, icon: Icons.phone_outlined, keyboard: TextInputType.phone),
-                      _editableField('Address', _addressCtrl, icon: Icons.home_outlined),
-                      _editableField('Emergency Contact', _emergencyCtrl, icon: Icons.emergency_outlined, hint: 'Name & number'),
+                      _editableField(l10n.phoneNumber, _phoneCtrl, icon: Icons.phone_outlined, keyboard: TextInputType.phone),
+                      _editableField(l10n.address, _addressCtrl, icon: Icons.home_outlined),
+                      _editableField(l10n.emergencyContact, _emergencyCtrl, icon: Icons.emergency_outlined, hint: l10n.emergencyHint),
                     ],
                   ),
 
@@ -234,7 +248,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       icon: _isSavingProfile
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.save_outlined),
-                      label: const Text('Save Contact Info'),
+                      label: Text(l10n.saveContactInfo),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -246,7 +260,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
                   // Password change
                   _sectionCard(
-                    title: 'Change Password',
+                    title: l10n.changePassword,
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(bottom: 16),
@@ -254,7 +268,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           controller: _newPasswordCtrl,
                           obscureText: _obscureNew,
                           decoration: InputDecoration(
-                            labelText: 'New Password',
+                            labelText: l10n.newPassword,
                             prefixIcon: const Icon(Icons.lock_outline, size: 20),
                             suffixIcon: IconButton(
                               icon: Icon(_obscureNew ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20),
@@ -270,7 +284,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           controller: _confirmPasswordCtrl,
                           obscureText: _obscureConfirm,
                           decoration: InputDecoration(
-                            labelText: 'Confirm New Password',
+                            labelText: l10n.confirmNewPassword,
                             prefixIcon: const Icon(Icons.lock_outline, size: 20),
                             suffixIcon: IconButton(
                               icon: Icon(_obscureConfirm ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20),
@@ -290,7 +304,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       icon: _isSavingPassword
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.key_outlined),
-                      label: const Text('Update Password'),
+                      label: Text(l10n.updatePassword),
                       style: FilledButton.styleFrom(
                         backgroundColor: AppColors.amber,
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),

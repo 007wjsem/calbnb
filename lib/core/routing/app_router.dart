@@ -15,6 +15,9 @@ import '../../features/dashboard/presentation/earnings_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/company/presentation/company_management_screen.dart';
 import '../../features/company/presentation/company_subscription_screen.dart';
+import '../../features/dashboard/presentation/owner_dashboard.dart';
+import '../../features/dashboard/presentation/advanced_reports_screen.dart';
+import '../../features/inbox/presentation/team_inbox_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
@@ -36,6 +39,9 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (isAtRoot) {
         final role = authState.role;
+        if (role == AppRole.owner) {
+          return '/owner';
+        }
         if (role == AppRole.cleaner || role == AppRole.inspector) {
           return '/assignments';
         }
@@ -62,6 +68,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const AssignmentsScreen(),
       ),
       GoRoute(
+        path: '/owner',
+        builder: (context, state) => const OwnerDashboard(),
+      ),
+      GoRoute(
         path: '/earnings',
         builder: (context, state) => const EarningsScreen(),
       ),
@@ -75,7 +85,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/admin/properties',
-        builder: (context, state) => const PropertyManagementScreen(),
+        builder: (context, state) {
+          final companyId = state.uri.queryParameters['companyId'];
+          return PropertyManagementScreen(companyId: companyId);
+        },
       ),
       GoRoute(
         path: '/admin/settings',
@@ -100,6 +113,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/admin/subscription',
         builder: (context, state) => const CompanySubscriptionScreen(),
+      ),
+      GoRoute(
+        path: '/admin/reports',
+        builder: (context, state) => const AdvancedReportsScreen(),
+      ),
+      GoRoute(
+        path: '/inbox',
+        builder: (context, state) => const TeamInboxScreen(),
       ),
     ],
   );

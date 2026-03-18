@@ -1,0 +1,495 @@
+{
+  "@@locale": "es",
+  "appTitle": "CalBNB",
+  "loginTitle": "Iniciar Sesión",
+  "loginSubtitle": "Accede a tu portal.",
+  "emailHint": "Usuario",
+  "passwordHint": "Contraseña",
+  "loginButton": "Entrar",
+  "dashboardTitle": "CalBNB",
+  "calendarTab": "Calendario",
+  "metricsTab": "Métricas",
+  "reportsTab": "Reportes",
+  "companiesTab": "Compañías",
+  "settingsTab": "Ajustes",
+  "logoutButton": "Cerrar Sesión",
+  
+  "systemAdministration": "Administración del Sistema",
+  "mainMenu": "MENÚ PRINCIPAL",
+  "assignments": "Asignaciones",
+  "myProfile": "Mi Perfil",
+  "teamInbox": "Bandeja de Entrada",
+  "myEarnings": "Mis Ganancias",
+  "administration": "ADMINISTRACIÓN",
+  "cleanings": "Limpiezas",
+  "inspections": "Inspecciones",
+  "payroll": "Nómina",
+  "billingAndPlan": "Facturación y Plan",
+  "advancedReports": "Reportes Avanzados",
+  "management": "GESTIÓN",
+  "users": "Usuarios",
+  "properties": "Propiedades",
+  
+  "monthlyCalendar": "Calendario Mensual",
+  "todayLabel": "Hoy",
+  "todaysActivities": "Actividades de Hoy",
+  "noActivities": "No hay actividades para esta fecha.",
+  "filterByProperty": "Filtrar por Propiedad",
+  "noPropertiesAvailable": "No hay propiedades disponibles",
+  "loadingCalendarData": "Cargando datos del calendario...",
+  "addBlockedDate": "Agregar Fecha Bloqueada",
+  "selectProperty": "Seleccionar Propiedad",
+  "reasonPlaceholder": "Motivo (ej. Mantenimiento)",
+  "saveAction": "Guardar",
+  "cancelAction": "Cancelar",
+  "allProperties": "Todas las Propiedades",
+  
+  "profileUpdated": "Perfil actualizado exitosamente.",
+  "errorOccurred": "Error:",
+  "pwdMinLength": "La contraseña debe tener al menos 6 caracteres.",
+  "pwdMismatch": "Las contraseñas no coinciden.",
+  "pwdUpdated": "Contraseña actualizada exitosamente.",
+  "accountInfo": "Información de la Cuenta",
+  "usernameLabel": "Nombre de Usuario",
+  "emailLabel": "Correo",
+  "roleLabel": "Rol",
+  "contactDetails": "Detalles de Contacto",
+  "phoneNumber": "Número Télefonico",
+  "address": "Dirección",
+  "emergencyContact": "Contacto de Emergencia",
+  "emergencyHint": "Nombre y número",
+  "saveContactInfo": "Guardar Información",
+  "changePassword": "Cambiar Contraseña",
+  "newPassword": "Nueva Contraseña",
+  "confirmNewPassword": "Confirmar Nueva Contraseña",
+  "updatePassword": "Actualizar Contraseña",
+
+  "systemSettingsTitle": "Ajustes del Sistema",
+  "errorLoadingData": "Error cargando datos:",
+  "propertyOrderSaved": "Orden de propiedades guardado exitosamente.",
+  "errorSavingPropertyOrder": "Error al guardar el orden de propiedades:",
+  "currencySettings": "Ajustes de Moneda",
+  "platinumTier": "Platino",
+  "currencySettingsDesc": "Establece la moneda utilizada en la nómina, ganancias y tarifas.",
+  "activeCurrency": "Moneda Activa",
+  "applyCurrency": "Aplicar Moneda",
+  "currencyUpdatedTo": "Moneda actualizada a",
+  "whiteLabelBranding": "Marca Blanca",
+  "diamondTier": "Diamante",
+  "whiteLabelDesc": "Sube el logo de tu compañía para reemplazar la marca CalBNB en toda la aplicación.",
+  "chooseLogo": "Elegir Logo",
+  "upload": "Subir",
+  "logoUpdated": "¡Logo actualizado!",
+  "logoRemoved": "Logo eliminado.",
+  "remove": "Remover",
+  "propertyDisplayOrder": "Orden de Visualización",
+  "propertyDisplayOrderDesc": "Arrastra y suelta las propiedades a continuación para reorganizar cómo aparecen en el sistema. Haz clic en 'Guardar Orden' cuando termines.",
+  "saveOrder": "Guardar Orden",
+
+  "usersTitle": "Usuarios",
+  "userLimitReachedPrefix": "Límite de usuarios alcanzado",
+  "userLimitReachedSuffix": "Mejora tu plan para agregar más usuarios.",
+  "upgradeAction": "Mejorar",
+  "addUserAction": "Agregar Usuario",
+  "searchUsersHint": "Buscar por nombre, correo o teléfono...",
+  "allRolesFilter": "Todos los Roles",
+  "ofKeyword": "de",
+  "usersKeyword": "usuarios",
+  "noUsersFound": "No se encontraron usuarios",
+  "tryDifferentSearch": "Intenta con otra búsqueda o filtro",
+  "addFirstUserAbove": "Agrega tu primer usuario arriba",
+  "deleteUserTitle": "Eliminar Usuario",
+  "deletePromptPrefix": "¿Eliminar a",
+  "deletePromptSuffix": "? Esta acción no se puede deshacer.",
+  "deleteAction": "Eliminar",
+  "editUserTitle": "Editar Usuario",
+  "createNewUserTitle": "Crear Nuevo Usuario",
+  "updateRoleDetails": "Actualiza el rol o detalles de contacto.",
+  "registerNewUser": "Registra un nuevo usuario en el sistema.",
+  "emailAddressLabel": "Correo Electrónico",
+  "passwordLabel": "Contraseña",
+  "displayNameLabel": "Nombre para Mostrar",
+  "payRateLabel": "Tarifa de Pago",
+  "saveChanges": "Guardar Cambios",
+  "createUserAction": "Crear Usuario",
+
+  "todaysCleaningsTitle": "Limpiezas de Hoy",
+
+  "ownerPortalTitle": "Portal del Dueño",
+  "welcomeMessage": "Bienvenido, {username}",
+  "@welcomeMessage": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "assignedPropertiesCount": "Tienes {count} propiedades asignadas.",
+  "@assignedPropertiesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "noAssignedPropertiesDesc": "Aún no tienes propiedades asignadas a tu cuenta.",
+  "viewOnMapsTooltip": "Ver en Mapas",
+  "cleaningActivityTitle": "Actividad de Limpieza",
+  "noCleaningsScheduledFor": "No hay limpiezas programadas para {month}",
+  "@noCleaningsScheduledFor": {
+    "placeholders": {
+      "month": {
+        "type": "String"
+      }
+    }
+  },
+  "errorLoadingActivity": "Error cargando actividad: {error}",
+  "@errorLoadingActivity": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "notePrefix": "Nota: {note}",
+  "@notePrefix": {
+    "placeholders": {
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "incidentsReportedCount": "{count} Incidente(s) Reportado(s)",
+  "@incidentsReportedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "inspectorFindingsLabel": "Hallazgos del Inspector:",
+  "checkoutEvidenceTitle": "Evidencia de Salida (Checkout)",
+
+  "checkoutVerificationTitle": "Verificación de Salida",
+  "requiredChecklistTitle": "Lista de Verificación Requerida",
+  "verifyTasksDesc": "Por favor, verifica que las siguientes tareas se hayan completado antes de terminar el trabajo.",
+  "photoEvidenceRequiredTitle": "Evidencia Fotográfica Requerida",
+  "capturePhotosDesc": "Por favor toma al menos 1 (hasta 3) fotos para probar que has terminado.",
+  "completeJobAction": "Completar Trabajo",
+  "myPendingAssignmentsTitle": "Mis Trabajos Pendientes",
+  "noPendingAssignmentsDesc": "No hay trabajos pendientes.",
+  "genericError": "Error: {error}",
+  "@genericError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "activeJobBadge": "TRABAJO ACTIVO",
+  "managerNotesLabel": "Notas del Gerente",
+  "cleaningInstructionsLabel": "Instrucciones de Limpieza",
+  "reportIncidentAction": "Reportar Incidente",
+  "finishJobAction": "Terminar Trabajo",
+  "statusAssigned": "Asignado",
+  "statusInProgress": "En Progreso",
+  "statusPendingInspection": "Esperando Inspección",
+  "statusFixNeeded": "Requiere Corrección",
+  "statusApprovedCompleted": "Aprobado (Completado)",
+  "checkoutDateLabel": "Salida: {date}",
+  "@checkoutDateLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "assignedDateLabel": "Asignado: {date}",
+  "@assignedDateLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "inspectorFindingsFixLabel": "⚠ Hallazgos del Inspector que requieren corrección:",
+  "startJobAction": "Empezar Trabajo",
+  "descriptionLabel": "Descripción",
+  "addPhotoAction": "Agregar Foto",
+  "submitReportAction": "Enviar Reporte",
+
+  "todaysInspectionsTitle": "Inspecciones de Hoy",
+  "pendingInspectionsTitle": "Inspecciones Pendientes",
+  "noPendingInspectionsDesc": "No hay inspecciones pendientes.",
+  "statusWaitingForCleaner": "Esperando al Limpiador...",
+  "statusReadyForInspection": "Listo para Inspección",
+  "statusCleanerFixingIssues": "El limpiador está corrigiendo problemas...",
+  "statusApproved": "Aprobado",
+  "cleanerLabel": "Limpiador: {name}",
+  "@cleanerLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "finishedAtLabel": "Terminado a las: {date}",
+  "@finishedAtLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "checkoutEvidenceLabel": "Evidencia de Salida:",
+  "reportedIncidentsLabel": "Incidentes Reportados:",
+  "inspectorFindingsNotesLabel": "Hallazgos / Notas del Inspector:",
+  "noTextObservationDesc": "Sin observación de texto",
+  "declineFixNeededAction": "Rechazar (Requiere Corrección)",
+  "approveAction": "Aprobar",
+  "addApprovalNotesTitle": "Agregar Notas de Aprobación (Opcional)",
+  "reportFindingsFixNeededTitle": "Reportar Hallazgos (Requiere Corrección)",
+  "notesLabel": "Notas",
+  "descriptionOfIssuesLabel": "Descripción de los problemas",
+  "provideTextOrPhotoError": "Por favor, proporciona texto o una foto para rechazar",
+  "approveJobAction": "Aprobar Trabajo",
+  "sendToFixAction": "Enviar a Corregir",
+
+  "payrollDashboardTitle": "Panel de Nómina",
+  "weeklyEarningsTitle": "Ganancias Semanales",
+  "noApprovedJobsThisWeek": "No hay trabajos de limpieza aprobados para esta semana.",
+  "unknownCleanerLabel": "Limpiador Desconocido",
+  "jobsCompletedLabel": "{count} trabajos completados",
+  "@jobsCompletedLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+
+  "teamInboxTitle": "Bandeja del Equipo",
+  "noActiveCompanyFound": "No se encontró compañía activa.",
+  "markAllAsReadAction": "Marcar todo como leído",
+  "noMessagesYetDesc": "Aún no hay mensajes. ¡Di hola!",
+  "typeMessageHint": "Escribe un mensaje…",
+
+  "advancedReportsTitle": "Reportes Avanzados",
+  "advancedAnalyticsTitle": "Analítica Avanzada",
+  "diamondTierReportingLabel": "Reporte Nivel Diamante · {year}",
+  "@diamondTierReportingLabel": {
+    "placeholders": {
+      "year": {
+        "type": "int"
+      }
+    }
+  },
+  "totalCleaningsLabel": "Limpiezas Totales",
+  "totalRevenueLabel": "Ingresos Totales",
+  "totalPayrollLabel": "Nómina Total",
+  "netMarginLabel": "Margen Neto",
+  "monthlyCleaningsTitle": "Limpiezas Mensuales",
+  "monthlyCleaningsDesc": "Limpiezas completadas y aprobadas por mes",
+  "noCleaningDataForYear": "No hay datos de limpieza para este año.",
+  "revenueVsPayrollTitle": "Ingresos vs Nómina",
+  "revenueVsPayrollDesc": "Comparación mensual de ingresos brutos y costo total de nómina",
+  "revenueLabel": "Ingresos",
+  "payrollLabel": "Nómina",
+  "cleanerPerformanceTitle": "Rendimiento del Limpiador",
+  "cleanerPerformanceDesc": "Ingresos generados vs costo de nómina por limpiador",
+  "noCleanerDataForYear": "No hay datos de limpiadores para este año.",
+  "cleanerHeader": "Limpiador",
+  "jobsHeader": "Trabajos",
+  "revenueHeader": "Ingresos",
+  "payrollHeader": "Nómina",
+  "marginHeader": "Margen",
+
+  "myEarningsTitle": "Mis Ganancias",
+  "thisWeekTitle": "Esta Semana",
+  "lastWeekTitle": "Semana Pasada",
+  "propertiesCleanedLabel": "{count} propiedades limpiadas",
+  "@propertiesCleanedLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "comparedToLastWeekLabel": "{diff} comparado con la semana pasada",
+  "@comparedToLastWeekLabel": {
+    "placeholders": {
+      "diff": {
+        "type": "String"
+      }
+    }
+  },
+  "thisWeeksDetailsTitle": "Detalles de Esta Semana",
+  "noCompletedCleaningsThisWeekDesc": "No hay limpiezas completadas esta semana.",
+
+  "propertiesTitle": "Propiedades",
+  "generateDummyProperty": "Generar Propiedad de Prueba (Test)",
+  "addPropertyAction": "Agregar Propiedad",
+  "limitReached": "Límite Alcanzado",
+  "searchPropertiesHint": "Buscar por nombre, dirección, dueño o administración...",
+  "cityLabel": "Ciudad",
+  "allCitiesFilter": "Todas las Ciudades",
+  "propertyManagementLabel": "Administración",
+  "allFilter": "Todos",
+  "propertiesKeyword": "propiedades",
+  "noPropertiesFound": "No se encontraron propiedades",
+  "tryAdjustingSearchFilters": "Intenta ajustar tu búsqueda o filtros",
+  "deletePropertyTitle": "Eliminar Propiedad",
+  "deletePropertyPrompt": "¿Eliminar \"{propertyName}\"? Esto no se puede deshacer.",
+  "@deletePropertyPrompt": {
+    "placeholders": {
+      "propertyName": {
+        "type": "String"
+      }
+    }
+  },
+  "stepBasic": "Básico",
+  "stepLocationDetails": "Ubicación y Detalles",
+  "stepOwnerMgmt": "Dueño y Admin.",
+  "stepAccessCleaning": "Acceso y Limpieza",
+  "assignToCompanyLabel": "Asignar a Empresa *",
+  "selectCompanyHint": "Seleccionar empresa",
+  "companyLabel": "Empresa",
+  "propertyNameLabel": "Nombre de la Propiedad",
+  "propertyTypeLabel": "Tipo de Propiedad",
+  "typeHouse": "Casa",
+  "typeApartment": "Departamento",
+  "typeOther": "Otro",
+  "streetAddressLabel": "Dirección",
+  "stateProvinceLabel": "Estado/Provincia",
+  "zipPostalCodeLabel": "Código Postal",
+  "countryLabel": "País",
+  "cleaningFeeLabel": "Tarifa de Limpieza ($)",
+  "sizeLabel": "Tamaño (ej. 1500 sqft)",
+  "schedulingSettingsLabel": "Config. de Programación (Silver+)",
+  "recurringCleanCadenceLabel": "Frecuencia de Limpieza Recurrente",
+  "cadenceNone": "Ninguna (Ad-hoc)",
+  "cadenceWeekly": "Semanal",
+  "cadenceBiWeekly": "Quincenal",
+  "cadenceMonthly": "Mensual",
+  "trashDayLabel": "Día de Basura",
+  "trashDayNone": "Ninguno",
+  "trashDayMonday": "Lunes",
+  "trashDayTuesday": "Martes",
+  "trashDayWednesday": "Miércoles",
+  "trashDayThursday": "Jueves",
+  "trashDayFriday": "Viernes",
+  "trashDaySaturday": "Sábado",
+  "trashDaySunday": "Domingo",
+  "bufferHoursLabel": "Horas de Reserva (Buffer)",
+  "bufferHoursHint": "Horas requeridas antes del próximo check-in",
+  "linkedOwnerAccountLabel": "Cuenta de Dueño Vinculada (Opcional)",
+  "linkedOwnerAccountHelper": "Vincula esta propiedad al panel de un dueño",
+  "noneUnassigned": "Ninguno / Sin Asignar",
+  "ownerNameLegacyLabel": "Nombre del Dueño (Original)",
+  "propertyManagementCompanyLabel": "Empresa Administradora",
+  "lockBoxPinLabel": "PIN de Caja de Llaves",
+  "housePinLabel": "PIN de la Casa",
+  "garagePinLabel": "PIN del Garaje",
+  "cleaningInstructionsLabel": "Instrucciones de Limpieza",
+  "customCleaningChecklistsTitle": "Listas de Verificación de Limpieza",
+  "addChecklistItemHint": "Agregar un nuevo elemento obligatorio...",
+  "addChecklistItemTooltip": "Agregar Elemento",
+  "addInstructionPhotoAction": "Agregar Foto de Instrucción",
+  "editPropertyTitle": "Editar Propiedad",
+  "addNewPropertyTitle": "Agregar Nueva Propiedad",
+  "setupPropertyDetailsDesc": "Completa los pasos a continuación para configurar los detalles.",
+  "savePropertyAction": "Guardar Propiedad",
+  "continueAction": "Continuar",
+  "backAction": "Atrás",
+  "pleaseSelectCompanyError": "Por favor, selecciona una empresa para esta propiedad.",
+  "expressSaveAction": "Guardado Rápido",
+  "propertyNameRequiredError": "El Nombre de la Propiedad es necesario para el Guardado Rápido.",
+  "subscriptionLimitReachedTitle": "Límite de Suscripción Alcanzado",
+  "subscriptionLimitReachedDesc": "Tu plan actual te limita a {limit} propiedades. Por favor, mejora tu suscripción para agregar más.",
+  "@subscriptionLimitReachedDesc": {
+    "placeholders": {
+      "limit": {
+        "type": "int"
+      }
+    }
+  },
+  "upgradePlanAction": "Mejorar Plan",
+  "cleaningFeeSuffix": "tarifa de lim.",
+  "lockPrefix": "Llave:",
+  "housePrefix": "Casa:",
+  "garagePrefix": "Garaje:",
+
+  "englishToggle": "English (US)",
+  "spanishToggle": "Español (ES)",
+
+  "confirmPlanChangeTitle": "Confirmar Cambio de Plan",
+  "confirmPlanChangeDesc": "¿Estás seguro de que quieres cambiar tu suscripción al plan {planName}?",
+  "@confirmPlanChangeDesc": {
+    "placeholders": {
+      "planName": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmAction": "Confirmar",
+  "successfullyUpdatedPlan": "Plan actualizado exitosamente a {planName}",
+  "@successfullyUpdatedPlan": {
+    "placeholders": {
+      "planName": {
+        "type": "String"
+      }
+    }
+  },
+  "errorUpdatingPlan": "Error al actualizar plan: {error}",
+  "@errorUpdatingPlan": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "noActiveCompanySelected": "Ninguna compañía seleccionada.",
+  "companyDataNotFound": "Datos de compañía no encontrados.",
+  "currentPlanLabel": "PLAN ACTUAL",
+  "planSuffix": "Plan",
+  "activeUsersLabel": "Usuarios Activos",
+  "availablePlansTitle": "Planes Disponibles",
+  "availablePlansDesc": "Elige el plan perfecto para las necesidades de tu negocio. Mejóralo o redúcelo en cualquier momento.",
+  "unlimitedCount": "/ Ilimitado",
+  "perMonthLabel": "/ mes",
+  "currentPlanButton": "Plan Actual",
+  "downgradeAction": "Bajar Plan",
+  "mostPopularBadge": "MÁS POPULAR",
+
+  "planFeatureBronze1": "Hasta 5 Propiedades",
+  "planFeatureBronze2": "Hasta 4 Usuarios (1 Admin, 3 Limpiadores)",
+  "planFeatureBronze3": "Acceso a App Móvil",
+  "planFeatureBronze4": "Evidencia Fotográfica (3/limp)",
+  "planFeatureBronze5": "Datos Básicos de Propiedad",
+
+  "planFeatureSilver1": "Hasta 15 Propiedades",
+  "planFeatureSilver2": "Hasta 10 Usuarios",
+  "planFeatureSilver3": "Roles de Equipo (Limpiador vs Gerente)",
+
+  "planFeatureGold1": "Hasta 30 Propiedades",
+  "planFeatureGold2": "Hasta 18 Usuarios",
+  "planFeatureGold3": "Módulo de Nómina y Reportes",
+  "planFeatureGold4": "Portal de Dueño",
+  "planFeatureGold5": "Rol de Inspector",
+
+  "planFeaturePlatinum1": "Hasta 60 Propiedades",
+  "planFeaturePlatinum2": "Hasta 39 Usuarios",
+  "planFeaturePlatinum3": "Facturación Multimoneda",
+
+  "planFeatureDiamond1": "Hasta 100 Propiedades",
+  "planFeatureDiamond2": "Hasta 106 Usuarios",
+  "planFeatureDiamond3": "Marca Blanca",
+  "planFeatureDiamond4": "Analítica Avanzada",
+  "planFeatureDiamond5": "Soporte Prioritario por WhatsApp",
+
+  "planFeatureFree1": "Hasta 2 Propiedades",
+  "planFeatureFree2": "Solo 1 Usuario (Admin)",
+  "planFeatureFree3": "Vista Básica de Calendario",
+  "planFeatureFree4": "Listas de Control Estándar",
+  "planFeatureFree5": "Actualizaciones Manuales de Estado"
+}

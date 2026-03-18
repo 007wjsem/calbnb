@@ -11,6 +11,8 @@ import '../../calendar/data/cleaning_repository.dart';
 import '../../calendar/domain/cleaning_assignment.dart';
 import '../../../core/constants/roles.dart';
 import 'package:firebase_database/firebase_database.dart';
+import '../../company/presentation/currency_provider.dart';
+import 'package:calbnb/l10n/app_localizations.dart';
 
 class PayrollScreen extends ConsumerStatefulWidget {
   const PayrollScreen({super.key});
@@ -35,7 +37,7 @@ class _PayrollScreenState extends ConsumerState<PayrollScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Payroll Dashboard'),
+        title: Text(AppLocalizations.of(context)!.payrollDashboardTitle),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/'),
@@ -55,7 +57,7 @@ class _PayrollScreenState extends ConsumerState<PayrollScreen> {
                 runSpacing: 8,
                 children: [
                   Text(
-                    'Weekly Earnings',
+                    AppLocalizations.of(context)!.weeklyEarningsTitle,
                     style: Theme.of(context).textTheme.headlineMedium,
                   ),
                   Row(
@@ -94,7 +96,7 @@ class _PayrollScreenState extends ConsumerState<PayrollScreen> {
                       return const Center(child: CircularProgressIndicator());
                     }
                     if (snapshot.hasError) {
-                      return Center(child: Text('Error: ${snapshot.error}'));
+                      return Center(child: Text(AppLocalizations.of(context)!.genericError(snapshot.error.toString())));
                     }
 
                     final data = snapshot.data ?? {};
@@ -107,6 +109,7 @@ class _PayrollScreenState extends ConsumerState<PayrollScreen> {
                     Map<String, double> earnings = {};
                     // cleanerId -> List of jobs
                     Map<String, List<CleaningAssignment>> jobs = {};
+                    final currencySymbol = ref.watch(currencySymbolProvider);
 
                     for (final assign in assignments) {
                       // if (assign.status != CleaningStatus.approved) continue; // Note: Only calc approved if required.
@@ -120,7 +123,7 @@ class _PayrollScreenState extends ConsumerState<PayrollScreen> {
                     }
 
                     if (earnings.isEmpty) {
-                      return const Center(child: Text('No approved cleaning jobs for this week.'));
+                      return Center(child: Text(AppLocalizations.of(context)!.noApprovedJobsThisWeek));
                     }
 
                     final sortedCleaners = earnings.keys.toList()..sort((a, b) => (cleaners[a] ?? a).compareTo(cleaners[b] ?? b));
@@ -129,7 +132,7 @@ class _PayrollScreenState extends ConsumerState<PayrollScreen> {
                       itemCount: sortedCleaners.length,
                       itemBuilder: (context, index) {
                         final cId = sortedCleaners[index];
-                        final cName = cleaners[cId] ?? 'Unknown Cleaner';
+                        final cName = cleaners[cId] ?? AppLocalizations.of(context)!.unknownCleanerLabel;
                         final total = earnings[cId] ?? 0.0;
                         final cJobs = jobs[cId] ?? [];
                         
@@ -144,16 +147,16 @@ class _PayrollScreenState extends ConsumerState<PayrollScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(cName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                                Text('\$${total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: const Color(0xFF16A34A))),
+                                Text('$currencySymbol${total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF16A34A))),
                               ]
                             ),
-                            subtitle: Text('${cJobs.length} jobs completed'),
+                            subtitle: Text(AppLocalizations.of(context)!.jobsCompletedLabel(cJobs.length)),
                             children: cJobs.map((job) {
                               final fee = properties[job.propertyId] ?? 0.0;
                               return ListTile(
                                 title: Text(job.propertyId),
                                 subtitle: Text(job.date),
-                                trailing: Text('\$${fee.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                trailing: Text('$currencySymbol${fee.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
                               );
                             }).toList(),
                           )
