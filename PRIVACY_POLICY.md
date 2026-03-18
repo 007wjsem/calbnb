@@ -48,7 +48,7 @@ You have the right to:
 *   Request the correction or deletion of your data.
 *   Opt-out of analytics tracking (via device settings).
 
-To exercise these rights, please contact us at support@calbnb.app.
+To exercise these rights, please contact us at info.calbnb@gmail.com
 
 ---
 
@@ -64,5 +64,4 @@ We may update this Privacy Policy from time to time. We will notify you of any c
 
 ## 8. Contact Us
 If you have any questions about this Privacy Policy, please contact us:
-*   **Email**: support@calbnb.app
-*   **Website**: [https://calbnb.app](https://calbnb.app)
+*   **Email**: info.calbnb@gmail.com
