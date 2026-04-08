@@ -26,6 +26,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   // Currency picker state
   String _selectedCurrency = 'USD';
+  String _selectedPhoneCode = '+1';
   // White-label logo state
   Uint8List? _logoBytes;
   String? _existingLogoBase64;
@@ -48,6 +49,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           if (companyId != null && companyId.isNotEmpty) {
             final companyAsync = ref.read(companyProvider(companyId));
             _selectedCurrency = companyAsync.valueOrNull?.baseCurrency ?? 'USD';
+            _selectedPhoneCode = companyAsync.valueOrNull?.phoneCountryCode ?? '+1';
             _existingLogoBase64 = companyAsync.valueOrNull?.companyLogoBase64;
           }
         });
@@ -122,7 +124,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           value: c['code'],
                           child: Text('${c['symbol']}  ${c['code']} – ${c['name']}'),
                         )).toList(),
-                        onChanged: (val) => setState(() => _selectedCurrency = val ?? 'USD'),
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedCurrency = val ?? 'USD';
+                            // Auto-fill matching phone code when currency changes
+                            final match = kSupportedCurrencies.firstWhere(
+                              (c) => c['code'] == _selectedCurrency,
+                              orElse: () => kSupportedCurrencies.first,
+                            );
+                            _selectedPhoneCode = match['phoneCode'] ?? '+1';
+                          });
+                        },
                       ),
                       const SizedBox(height: 12),
                       Align(
@@ -151,6 +163,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               );
             }),
+            
+            // ─── Support Section ──────────────────────────────────────────
+            Card(
+              margin: const EdgeInsets.only(bottom: 24),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: ListTile(
+                leading: const Icon(Icons.support_agent, color: AppColors.primary),
+                title: Text(l10n.supportTitle),
+                subtitle: Text(l10n.supportSubtitle),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/support'),
+              ),
+            ),
             // ─── White-Label Section (Diamond) ─────────────────────────
             Builder(builder: (context) {
               final currentUser = ref.watch(authControllerProvider);
@@ -211,7 +236,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                         ),
                       if (previewBytes != null) const SizedBox(height: 12),
-                      Row(
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           OutlinedButton.icon(
                             icon: const Icon(Icons.image_outlined),
@@ -225,7 +253,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               }
                             },
                           ),
-                          const SizedBox(width: 12),
                           FilledButton.icon(
                             icon: _logoUploading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.upload),
                             label: Text(l10n.upload),
@@ -249,8 +276,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               }
                             },
                           ),
-                          if ((existingLogo != null || _logoBytes != null)) ...[
-                            const SizedBox(width: 8),
+                          if ((existingLogo != null || _logoBytes != null))
                             TextButton(
                               style: TextButton.styleFrom(foregroundColor: AppColors.error),
                               child: Text(l10n.remove),
@@ -264,7 +290,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 setState(() { _logoBytes = null; _existingLogoBase64 = null; _logoUploading = false; });
                               },
                             ),
-                          ],
                         ],
                       ),
                     ],

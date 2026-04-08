@@ -222,6 +222,29 @@ class AppLocalizationsEs extends AppLocalizations {
   String get currencyUpdatedTo => 'Moneda actualizada a';
 
   @override
+  String get phoneCountryCodeLabel => 'Código de País (WhatsApp)';
+
+  @override
+  String get phoneCountryCodeHelper =>
+      'Se añade al número del personal al enviar mensajes de WhatsApp';
+
+  @override
+  String whatsAppCleaningMessage(
+      String name, String date, String property, String address) {
+    return '¡Hola $name! Tienes una asignación de limpieza el $date en $property, $address.';
+  }
+
+  @override
+  String get messageCleanerOnWhatsApp => 'Enviar WhatsApp al Limpiador';
+
+  @override
+  String get noPhoneOnFileError =>
+      'Este limpiador no tiene número de teléfono registrado.';
+
+  @override
+  String get couldNotOpenWhatsApp => 'No se pudo abrir WhatsApp';
+
+  @override
   String get whiteLabelBranding => 'Marca Blanca';
 
   @override
@@ -339,6 +362,38 @@ class AppLocalizationsEs extends AppLocalizations {
   String get todaysCleaningsTitle => 'Limpiezas de Hoy';
 
   @override
+  String get assignmentDetailsTitle => 'Detalles de la Asignación';
+
+  @override
+  String get selectCleanerLabel => 'Seleccionar Limpiador';
+
+  @override
+  String get selectInspectorLabel => 'Seleccionar Inspector (Opcional)';
+
+  @override
+  String get managerObservationsLabel =>
+      'Observaciones del gerente para el limpiador';
+
+  @override
+  String get propertyCleaningFeeLabel =>
+      'Tarifa de Limpieza (Cobrada al Dueño)';
+
+  @override
+  String get propertyInstructionsLabel => 'Instrucciones de la Propiedad';
+
+  @override
+  String get cleanerIncidentsLabel => 'Incidentes Reportados por el Limpiador';
+
+  @override
+  String get cancelCleaningAction => 'Cancelar Limpieza';
+
+  @override
+  String get createAssignmentAction => 'Crear Asignación';
+
+  @override
+  String get pleaseSelectCleanerError => 'Por favor, selecciona un limpiador';
+
+  @override
   String get ownerPortalTitle => 'Portal del Dueño';
 
   @override
@@ -447,6 +502,23 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get statusApprovedCompleted => 'Aprobado (Completado)';
+
+  @override
+  String get statusLabel => 'Estado';
+
+  @override
+  String inspectorLabel(Object name) {
+    return 'Inspector: $name';
+  }
+
+  @override
+  String get checkInBadge => 'ENTRADA';
+
+  @override
+  String get checkOutBadge => 'SALIDA';
+
+  @override
+  String get reservedLabel => 'Reservado';
 
   @override
   String checkoutDateLabel(String date) {
@@ -567,6 +639,18 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get teamInboxTitle => 'Bandeja del Equipo';
+
+  @override
+  String get cleanersChannel => 'Cleaners Channel';
+
+  @override
+  String get inspectorsChannel => 'Inspectors Channel';
+
+  @override
+  String get generalChannel => 'General';
+
+  @override
+  String get directMessages => 'Direct Messages';
 
   @override
   String get noActiveCompanyFound => 'No se encontró compañía activa.';
@@ -737,10 +821,26 @@ class AppLocalizationsEs extends AppLocalizations {
   String get stepAccessCleaning => 'Acceso y Limpieza';
 
   @override
+  String get syncIdLabel => 'ID de Sincronización / Slug';
+
+  @override
+  String get isCohostLabel => '¿Es Co-Anfitrión?';
+
+  @override
+  String get isCohostHelper =>
+      'Activa si tu empresa administra esta propiedad pero no es dueña';
+
+  @override
   String get assignToCompanyLabel => 'Asignar a Empresa *';
 
   @override
   String get selectCompanyHint => 'Seleccionar empresa';
+
+  @override
+  String get generateAction => 'Generar';
+
+  @override
+  String get cleanerFeeLabel => 'Pago Limpiador';
 
   @override
   String get companyLabel => 'Empresa';
@@ -773,10 +873,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get countryLabel => 'País';
 
   @override
-  String get cleaningFeeLabel => 'Tarifa de Limpieza (\$)';
+  String get cleaningFeeLabel => 'Tarifa de Limpieza';
 
   @override
-  String get sizeLabel => 'Tamaño (ej. 1500 sqft)';
+  String get sizeLabel => 'AxBxC (Cuartos x Baños x Pisos)';
 
   @override
   String get schedulingSettingsLabel => 'Config. de Programación (Silver+)';
@@ -840,7 +940,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get noneUnassigned => 'Ninguno / Sin Asignar';
 
   @override
-  String get ownerNameLegacyLabel => 'Nombre del Dueño (Original)';
+  String get ownerNameLegacyLabel => 'Nombre del Propietario (Referencia)';
 
   @override
   String get propertyManagementCompanyLabel => 'Empresa Administradora';
@@ -921,6 +1021,15 @@ class AppLocalizationsEs extends AppLocalizations {
   String get garagePrefix => 'Garaje:';
 
   @override
+  String get settingsTabLabel => 'Ajustes';
+
+  @override
+  String get feedbackTabLabel => 'Feedback';
+
+  @override
+  String get noFeedbackLabel => 'Aún no hay comentarios operacionales.';
+
+  @override
   String get englishToggle => 'English (US)';
 
   @override
@@ -988,7 +1097,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get planFeatureBronze1 => 'Hasta 5 Propiedades';
 
   @override
-  String get planFeatureBronze2 => 'Hasta 4 Usuarios (1 Admin, 3 Limpiadores)';
+  String get planFeatureBronze2 => 'Hasta 2 Usuarios';
 
   @override
   String get planFeatureBronze3 => 'Acceso a App Móvil';
@@ -1009,10 +1118,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get planFeatureSilver3 => 'Roles de Equipo (Limpiador vs Gerente)';
 
   @override
-  String get planFeatureGold1 => 'Hasta 30 Propiedades';
+  String get planFeatureGold1 => 'Hasta 40 Propiedades';
 
   @override
-  String get planFeatureGold2 => 'Hasta 18 Usuarios';
+  String get planFeatureGold2 => 'Hasta 12 Usuarios';
 
   @override
   String get planFeatureGold3 => 'Módulo de Nómina y Reportes';
@@ -1024,19 +1133,19 @@ class AppLocalizationsEs extends AppLocalizations {
   String get planFeatureGold5 => 'Rol de Inspector';
 
   @override
-  String get planFeaturePlatinum1 => 'Hasta 60 Propiedades';
+  String get planFeaturePlatinum1 => 'Hasta 100 Propiedades';
 
   @override
-  String get planFeaturePlatinum2 => 'Hasta 39 Usuarios';
+  String get planFeaturePlatinum2 => 'Hasta 50 Usuarios';
 
   @override
   String get planFeaturePlatinum3 => 'Facturación Multimoneda';
 
   @override
-  String get planFeatureDiamond1 => 'Hasta 100 Propiedades';
+  String get planFeatureDiamond1 => 'Propiedades Ilimitadas';
 
   @override
-  String get planFeatureDiamond2 => 'Hasta 106 Usuarios';
+  String get planFeatureDiamond2 => 'Usuarios Ilimitados';
 
   @override
   String get planFeatureDiamond3 => 'Marca Blanca';
@@ -1048,7 +1157,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get planFeatureDiamond5 => 'Soporte Prioritario por WhatsApp';
 
   @override
-  String get planFeatureFree1 => 'Hasta 2 Propiedades';
+  String get planFeatureFree1 => 'Solo 1 Propiedad';
 
   @override
   String get planFeatureFree2 => 'Solo 1 Usuario (Admin)';
@@ -1061,4 +1170,152 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get planFeatureFree5 => 'Actualizaciones Manuales de Estado';
+
+  @override
+  String get addCleanerAction => 'Agregar Limpiador';
+
+  @override
+  String get mainCleanerLabel => 'Limpiador Principal';
+
+  @override
+  String get assistantCleanerLabel => 'Asistente';
+
+  @override
+  String individualFeeLabel(String name) {
+    return 'Pago para $name';
+  }
+
+  @override
+  String get assistantPermissionNotice =>
+      'Rol de Asistente: Solo el limpiador principal puede iniciar o terminar este trabajo.';
+
+  @override
+  String get myPaymentsTitle => 'Mis Pagos';
+
+  @override
+  String get paymentHistoryTab => 'Historial de Pagos';
+
+  @override
+  String get payoutSettingsTab => 'Ajustes de Cobro';
+
+  @override
+  String get paymentPreferencesSaved =>
+      'Preferencias de pago guardadas exitosamente.';
+
+  @override
+  String get payoutQuestion => '¿Cómo te gustaría cobrar?';
+
+  @override
+  String get bankTransferOption => 'Banco';
+
+  @override
+  String get bankNameLabel => 'Nombre del Banco';
+
+  @override
+  String get savingsAccountLabel => 'Número de Cuenta de Ahorros';
+
+  @override
+  String get cciLabel => 'CCI (Código Interbancario)';
+
+  @override
+  String registeredPhoneLabel(String provider) {
+    return 'Número Celular registrado para $provider';
+  }
+
+  @override
+  String get savePaymentInfoAction => 'Guardar Información de Pago';
+
+  @override
+  String get viewProofAction => 'Ver Comprobante';
+
+  @override
+  String paidOnLabel(String date) {
+    return 'Pagado el $date';
+  }
+
+  @override
+  String get noPaymentHistoryDesc => 'No se encontró historial de pagos.';
+
+  @override
+  String get registerButton => 'Regístrate';
+
+  @override
+  String get leadRegistrationTitle => 'Únete a Calbnb';
+
+  @override
+  String get leadRegistrationSubtitle =>
+      'Cuéntanos sobre tu empresa y nos pondremos en contacto para ayudarte con la configuración.';
+
+  @override
+  String get leadNameLabel => 'Nombre de la Empresa / Tu Nombre';
+
+  @override
+  String get contactPreferenceLabel => '¿Cómo prefieres que te contactemos?';
+
+  @override
+  String get emailOption => 'Correo Electrónico';
+
+  @override
+  String get whatsappOption => 'WhatsApp';
+
+  @override
+  String get countryPickerLabel => 'Código de País';
+
+  @override
+  String get phoneNumberPlaceholder =>
+      'Número de Teléfono (incluye código de país)';
+
+  @override
+  String get emailPlaceholder => 'Tu Correo Electrónico';
+
+  @override
+  String get submitLeadButton => 'Enviar Interés';
+
+  @override
+  String get leadSubmittedSuccess =>
+      '¡Gracias! Recibimos tu solicitud y te contactaremos pronto.';
+
+  @override
+  String get fieldRequired => 'Este campo es obligatorio';
+
+  @override
+  String get superAdminLeadsMenu => 'Prospectos de Clientes';
+
+  @override
+  String get superAdminSupportMenu => 'Tickets de Soporte';
+
+  @override
+  String get leadContactTemplateEmailTitle =>
+      'Calbnb: Configuración de tu cuenta';
+
+  @override
+  String leadContactTemplateWhatsApp(Object name) {
+    return '¡Hola $name! Soy el administrador de Calbnb. Vi que estás interesado en nuestra plataforma. Para configurar tu cuenta, por favor proporciona el nombre de tu compañía y el enlace de tu propiedad en Airbnb o tu enlace de sincronización de calendario actual (Lodgify, etc.).';
+  }
+
+  @override
+  String get supportTitle => 'Contactar a Soporte';
+
+  @override
+  String get supportSubtitle =>
+      'Describe tu problema y nuestro equipo te ayudará en breve.';
+
+  @override
+  String get newTicketButton => 'Nuevo Ticket de Soporte';
+
+  @override
+  String get noTicketsMessage => 'No hay tickets de soporte aún.';
+
+  @override
+  String get ticketStatusOpen => 'Abierto';
+
+  @override
+  String get ticketStatusClosed => 'Resuelto';
+
+  @override
+  String get deleteTicketConfirm =>
+      '¿Estás seguro de que deseas eliminar esta conversación?';
+
+  @override
+  String get priorityTicketLabel => 'Soporte Prioritario';
 }

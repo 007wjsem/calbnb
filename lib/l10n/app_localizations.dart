@@ -203,7 +203,7 @@ abstract class AppLocalizations {
   /// No description provided for @teamInbox.
   ///
   /// In en, this message translates to:
-  /// **'Team Inbox'**
+  /// **'Inbox'**
   String get teamInbox;
 
   /// No description provided for @myEarnings.
@@ -518,6 +518,43 @@ abstract class AppLocalizations {
   /// **'Currency updated to'**
   String get currencyUpdatedTo;
 
+  /// No description provided for @phoneCountryCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp Country Code'**
+  String get phoneCountryCodeLabel;
+
+  /// No description provided for @phoneCountryCodeHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Prepended to staff phone numbers when sending WhatsApp messages'**
+  String get phoneCountryCodeHelper;
+
+  /// No description provided for @whatsAppCleaningMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Hello {name}! You have a cleaning assignment on {date} at {property}, {address}.'**
+  String whatsAppCleaningMessage(
+      String name, String date, String property, String address);
+
+  /// No description provided for @messageCleanerOnWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Message Cleaner on WhatsApp'**
+  String get messageCleanerOnWhatsApp;
+
+  /// No description provided for @noPhoneOnFileError.
+  ///
+  /// In en, this message translates to:
+  /// **'This cleaner has no phone number on file.'**
+  String get noPhoneOnFileError;
+
+  /// No description provided for @couldNotOpenWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open WhatsApp'**
+  String get couldNotOpenWhatsApp;
+
   /// No description provided for @whiteLabelBranding.
   ///
   /// In en, this message translates to:
@@ -743,8 +780,68 @@ abstract class AppLocalizations {
   /// No description provided for @todaysCleaningsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Today\'\'s Cleanings'**
+  /// **'Today\'s Cleanings'**
   String get todaysCleaningsTitle;
+
+  /// No description provided for @assignmentDetailsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment Details'**
+  String get assignmentDetailsTitle;
+
+  /// No description provided for @selectCleanerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Cleaner'**
+  String get selectCleanerLabel;
+
+  /// No description provided for @selectInspectorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Inspector (Optional)'**
+  String get selectInspectorLabel;
+
+  /// No description provided for @managerObservationsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Manager observations for cleaner'**
+  String get managerObservationsLabel;
+
+  /// No description provided for @propertyCleaningFeeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Property Cleaning Fee (Charged to Owner)'**
+  String get propertyCleaningFeeLabel;
+
+  /// No description provided for @propertyInstructionsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Property Instructions'**
+  String get propertyInstructionsLabel;
+
+  /// No description provided for @cleanerIncidentsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleaner Reported Incidents'**
+  String get cleanerIncidentsLabel;
+
+  /// No description provided for @cancelCleaningAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel Cleaning'**
+  String get cancelCleaningAction;
+
+  /// No description provided for @createAssignmentAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Assignment'**
+  String get createAssignmentAction;
+
+  /// No description provided for @pleaseSelectCleanerError.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a cleaner'**
+  String get pleaseSelectCleanerError;
 
   /// No description provided for @ownerPortalTitle.
   ///
@@ -931,6 +1028,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Approved (Completed)'**
   String get statusApprovedCompleted;
+
+  /// No description provided for @statusLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get statusLabel;
+
+  /// No description provided for @inspectorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspector: {name}'**
+  String inspectorLabel(Object name);
+
+  /// No description provided for @checkInBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'CHECK-IN'**
+  String get checkInBadge;
+
+  /// No description provided for @checkOutBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'CHECK-OUT'**
+  String get checkOutBadge;
+
+  /// No description provided for @reservedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reserved'**
+  String get reservedLabel;
 
   /// No description provided for @checkoutDateLabel.
   ///
@@ -1139,8 +1266,32 @@ abstract class AppLocalizations {
   /// No description provided for @teamInboxTitle.
   ///
   /// In en, this message translates to:
-  /// **'Team Inbox'**
+  /// **'Inbox'**
   String get teamInboxTitle;
+
+  /// No description provided for @cleanersChannel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleaners Channel'**
+  String get cleanersChannel;
+
+  /// No description provided for @inspectorsChannel.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspectors Channel'**
+  String get inspectorsChannel;
+
+  /// No description provided for @generalChannel.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get generalChannel;
+
+  /// No description provided for @directMessages.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct Messages'**
+  String get directMessages;
 
   /// No description provided for @noActiveCompanyFound.
   ///
@@ -1448,6 +1599,24 @@ abstract class AppLocalizations {
   /// **'Access & Cleaning'**
   String get stepAccessCleaning;
 
+  /// No description provided for @syncIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync ID / Slug'**
+  String get syncIdLabel;
+
+  /// No description provided for @isCohostLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Is Co-Host?'**
+  String get isCohostLabel;
+
+  /// No description provided for @isCohostHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable if your company manages this property but does not own it'**
+  String get isCohostHelper;
+
   /// No description provided for @assignToCompanyLabel.
   ///
   /// In en, this message translates to:
@@ -1459,6 +1628,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select company'**
   String get selectCompanyHint;
+
+  /// No description provided for @generateAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate'**
+  String get generateAction;
+
+  /// No description provided for @cleanerFeeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cleaner Fee'**
+  String get cleanerFeeLabel;
 
   /// No description provided for @companyLabel.
   ///
@@ -1523,13 +1704,13 @@ abstract class AppLocalizations {
   /// No description provided for @cleaningFeeLabel.
   ///
   /// In en, this message translates to:
-  /// **'Cleaning Fee (\$)'**
+  /// **'Cleaning Fee'**
   String get cleaningFeeLabel;
 
   /// No description provided for @sizeLabel.
   ///
   /// In en, this message translates to:
-  /// **'Size (e.g. 1500 sqft)'**
+  /// **'AxBxC (Rooms x Baths x Floors)'**
   String get sizeLabel;
 
   /// No description provided for @schedulingSettingsLabel.
@@ -1655,7 +1836,7 @@ abstract class AppLocalizations {
   /// No description provided for @ownerNameLegacyLabel.
   ///
   /// In en, this message translates to:
-  /// **'Owner Name (Legacy)'**
+  /// **'Owner Name (For Reference)'**
   String get ownerNameLegacyLabel;
 
   /// No description provided for @propertyManagementCompanyLabel.
@@ -1802,6 +1983,24 @@ abstract class AppLocalizations {
   /// **'Garage:'**
   String get garagePrefix;
 
+  /// No description provided for @settingsTabLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTabLabel;
+
+  /// No description provided for @feedbackTabLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback'**
+  String get feedbackTabLabel;
+
+  /// No description provided for @noFeedbackLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'No operational feedback yet.'**
+  String get noFeedbackLabel;
+
   /// No description provided for @englishToggle.
   ///
   /// In en, this message translates to:
@@ -1925,7 +2124,7 @@ abstract class AppLocalizations {
   /// No description provided for @planFeatureBronze2.
   ///
   /// In en, this message translates to:
-  /// **'Up to 4 Users (1 Admin, 3 Cleaners)'**
+  /// **'Up to 2 Users'**
   String get planFeatureBronze2;
 
   /// No description provided for @planFeatureBronze3.
@@ -1967,13 +2166,13 @@ abstract class AppLocalizations {
   /// No description provided for @planFeatureGold1.
   ///
   /// In en, this message translates to:
-  /// **'Up to 30 Properties'**
+  /// **'Up to 40 Properties'**
   String get planFeatureGold1;
 
   /// No description provided for @planFeatureGold2.
   ///
   /// In en, this message translates to:
-  /// **'Up to 18 Users'**
+  /// **'Up to 12 Users'**
   String get planFeatureGold2;
 
   /// No description provided for @planFeatureGold3.
@@ -1997,13 +2196,13 @@ abstract class AppLocalizations {
   /// No description provided for @planFeaturePlatinum1.
   ///
   /// In en, this message translates to:
-  /// **'Up to 60 Properties'**
+  /// **'Up to 100 Properties'**
   String get planFeaturePlatinum1;
 
   /// No description provided for @planFeaturePlatinum2.
   ///
   /// In en, this message translates to:
-  /// **'Up to 39 Users'**
+  /// **'Up to 50 Users'**
   String get planFeaturePlatinum2;
 
   /// No description provided for @planFeaturePlatinum3.
@@ -2015,13 +2214,13 @@ abstract class AppLocalizations {
   /// No description provided for @planFeatureDiamond1.
   ///
   /// In en, this message translates to:
-  /// **'Up to 100 Properties'**
+  /// **'Unlimited Properties'**
   String get planFeatureDiamond1;
 
   /// No description provided for @planFeatureDiamond2.
   ///
   /// In en, this message translates to:
-  /// **'Up to 106 Users'**
+  /// **'Unlimited Users'**
   String get planFeatureDiamond2;
 
   /// No description provided for @planFeatureDiamond3.
@@ -2045,7 +2244,7 @@ abstract class AppLocalizations {
   /// No description provided for @planFeatureFree1.
   ///
   /// In en, this message translates to:
-  /// **'Up to 2 Properties'**
+  /// **'1 Property Only'**
   String get planFeatureFree1;
 
   /// No description provided for @planFeatureFree2.
@@ -2071,6 +2270,270 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Manual Status Updates'**
   String get planFeatureFree5;
+
+  /// No description provided for @addCleanerAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Cleaner'**
+  String get addCleanerAction;
+
+  /// No description provided for @mainCleanerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Main Cleaner'**
+  String get mainCleanerLabel;
+
+  /// No description provided for @assistantCleanerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assistant'**
+  String get assistantCleanerLabel;
+
+  /// No description provided for @individualFeeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Fee for {name}'**
+  String individualFeeLabel(String name);
+
+  /// No description provided for @assistantPermissionNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Assistant Role: Only the Main Cleaner can start or finish this job.'**
+  String get assistantPermissionNotice;
+
+  /// No description provided for @myPaymentsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My Payments'**
+  String get myPaymentsTitle;
+
+  /// No description provided for @paymentHistoryTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment History'**
+  String get paymentHistoryTab;
+
+  /// No description provided for @payoutSettingsTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Payout Settings'**
+  String get payoutSettingsTab;
+
+  /// No description provided for @paymentPreferencesSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment preferences saved successfully.'**
+  String get paymentPreferencesSaved;
+
+  /// No description provided for @payoutQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'How would you like to get paid?'**
+  String get payoutQuestion;
+
+  /// No description provided for @bankTransferOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank'**
+  String get bankTransferOption;
+
+  /// No description provided for @bankNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Bank Name'**
+  String get bankNameLabel;
+
+  /// No description provided for @savingsAccountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Savings Account number'**
+  String get savingsAccountLabel;
+
+  /// No description provided for @cciLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'CCI (Interbank Code)'**
+  String get cciLabel;
+
+  /// No description provided for @registeredPhoneLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Registered Phone Number for {provider}'**
+  String registeredPhoneLabel(String provider);
+
+  /// No description provided for @savePaymentInfoAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Payment Information'**
+  String get savePaymentInfoAction;
+
+  /// No description provided for @viewProofAction.
+  ///
+  /// In en, this message translates to:
+  /// **'View Proof'**
+  String get viewProofAction;
+
+  /// No description provided for @paidOnLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Paid on {date}'**
+  String paidOnLabel(String date);
+
+  /// No description provided for @noPaymentHistoryDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'No payment history found.'**
+  String get noPaymentHistoryDesc;
+
+  /// No description provided for @registerButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Register'**
+  String get registerButton;
+
+  /// No description provided for @leadRegistrationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Join Calbnb'**
+  String get leadRegistrationTitle;
+
+  /// No description provided for @leadRegistrationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tell us about your company and we\'ll get in contact to help you set up.'**
+  String get leadRegistrationSubtitle;
+
+  /// No description provided for @leadNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Company Name / Your Name'**
+  String get leadNameLabel;
+
+  /// No description provided for @contactPreferenceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'How should we contact you?'**
+  String get contactPreferenceLabel;
+
+  /// No description provided for @emailOption.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get emailOption;
+
+  /// No description provided for @whatsappOption.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp'**
+  String get whatsappOption;
+
+  /// No description provided for @countryPickerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Country Code'**
+  String get countryPickerLabel;
+
+  /// No description provided for @phoneNumberPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone Number (including country code)'**
+  String get phoneNumberPlaceholder;
+
+  /// No description provided for @emailPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Email Address'**
+  String get emailPlaceholder;
+
+  /// No description provided for @submitLeadButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Interest'**
+  String get submitLeadButton;
+
+  /// No description provided for @leadSubmittedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you! We received your request and will contact you soon.'**
+  String get leadSubmittedSuccess;
+
+  /// No description provided for @fieldRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'This field is required'**
+  String get fieldRequired;
+
+  /// No description provided for @superAdminLeadsMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer Leads'**
+  String get superAdminLeadsMenu;
+
+  /// No description provided for @superAdminSupportMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Support Tickets'**
+  String get superAdminSupportMenu;
+
+  /// No description provided for @leadContactTemplateEmailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Calbnb: Setting up your account'**
+  String get leadContactTemplateEmailTitle;
+
+  /// No description provided for @leadContactTemplateWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Hi {name}! I\'m the Calbnb admin. I saw you\'re interested in our platform. To set up your account, please provide the name of your company and the URL of your Airbnb property or your current calendar sync link (Lodgify, etc.).'**
+  String leadContactTemplateWhatsApp(Object name);
+
+  /// No description provided for @supportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Support'**
+  String get supportTitle;
+
+  /// No description provided for @supportSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe your issue and our team will help you shortly.'**
+  String get supportSubtitle;
+
+  /// No description provided for @newTicketButton.
+  ///
+  /// In en, this message translates to:
+  /// **'New Support Ticket'**
+  String get newTicketButton;
+
+  /// No description provided for @noTicketsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'No support tickets yet.'**
+  String get noTicketsMessage;
+
+  /// No description provided for @ticketStatusOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get ticketStatusOpen;
+
+  /// No description provided for @ticketStatusClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolved'**
+  String get ticketStatusClosed;
+
+  /// No description provided for @deleteTicketConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this conversation?'**
+  String get deleteTicketConfirm;
+
+  /// No description provided for @priorityTicketLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Priority Support'**
+  String get priorityTicketLabel;
 }
 
 class _AppLocalizationsDelegate

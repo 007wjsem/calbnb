@@ -3,15 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-import '../../auth/data/auth_repository.dart';
-import '../../company/data/company_repository.dart';
+import '../../calendar/data/cleaning_repository.dart';
 import '../../company/domain/subscription.dart';
 import '../../company/presentation/subscription_guard.dart';
 import '../../calendar/data/cleaning_repository.dart';
 import '../../calendar/domain/cleaning_assignment.dart';
 import '../../admin/data/property_repository.dart';
+import '../../admin/domain/property.dart';
 import '../../admin/data/user_repository.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/data/server_time_provider.dart';
 import '../../company/presentation/currency_provider.dart';
 import 'package:calbnb/l10n/app_localizations.dart';
 
@@ -44,7 +45,19 @@ class _ReportsBody extends ConsumerStatefulWidget {
 }
 
 class _ReportsBodyState extends ConsumerState<_ReportsBody> {
-  int _selectedYear = DateTime.now().year;
+  int? _selectedYear;
+  bool _isYearlyView = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final serverTime = ref.read(currentServerTimeProvider);
+      setState(() {
+        _selectedYear = serverTime.year;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,8 +68,9 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (Object e, StackTrace _) => Center(child: Text(AppLocalizations.of(context)!.genericError(e.toString()))),
       data: (allAssignments) {
+        if (_selectedYear == null) return const Center(child: CircularProgressIndicator());
         return FutureBuilder<_AnalyticsData>(
-          future: _computeAnalytics(ref, allAssignments, _selectedYear),
+          future: _computeAnalytics(ref, allAssignments, _selectedYear!, _isYearlyView),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
@@ -81,22 +95,41 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
           // ── Header ─────────────────────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(AppLocalizations.of(context)!.advancedAnalyticsTitle, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
-                  Text(AppLocalizations.of(context)!.diamondTierReportingLabel(_selectedYear), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(AppLocalizations.of(context)!.advancedAnalyticsTitle, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+                    Text(AppLocalizations.of(context)!.diamondTierReportingLabel(_selectedYear!), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+                  ],
+                ),
               ),
-              // Year Picker
-              Row(
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => _selectedYear--)),
-                  Text('$_selectedYear', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right),
-                    onPressed: _selectedYear < DateTime.now().year ? () => setState(() => _selectedYear++) : null,
+                  SegmentedButton<bool>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('6 Months')),
+                      ButtonSegment(value: true, label: Text('12 Months')),
+                    ],
+                    selected: {_isYearlyView},
+                    onSelectionChanged: (Set<bool> newSelection) {
+                      setState(() => _isYearlyView = newSelection.first);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => _selectedYear = (_selectedYear ?? 0) - 1)),
+                      Text('${_selectedYear ?? ''}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        onPressed: (_selectedYear ?? 0) < ref.read(currentServerTimeProvider).year ? () => setState(() => _selectedYear = (_selectedYear ?? 0) + 1) : null,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -133,10 +166,9 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
                         bottomTitles: AxisTitles(sideTitles: SideTitles(
                           showTitles: true,
                           getTitlesWidget: (value, meta) {
-                            final date = DateTime(2000, value.toInt() + 1);
-                            final monthStr = DateFormat.MMM(Localizations.localeOf(context).languageCode).format(date);
+                            if (value.toInt() < 0 || value.toInt() >= data.monthLabels.length) return const SizedBox();
                             return Text(
-                              monthStr,
+                              data.monthLabels[value.toInt()],
                               style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
                             );
                           },
@@ -148,7 +180,7 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
                       ),
                       gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (_) => FlLine(color: AppColors.border.withOpacity(0.5), strokeWidth: 1)),
                       borderData: FlBorderData(show: false),
-                      barGroups: List.generate(12, (i) => BarChartGroupData(
+                      barGroups: List.generate(data.monthlyCounts.length, (i) => BarChartGroupData(
                         x: i,
                         barRods: [BarChartRodData(
                           toY: data.monthlyCounts[i].toDouble(),
@@ -169,7 +201,7 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
             height: 220,
             child: LineChart(
               LineChartData(
-                minX: 0, maxX: 11,
+                minX: 0, maxX: (data.monthlyCounts.length - 1).toDouble(),
                 minY: 0,
                 maxY: ([...data.monthlyRevenue, ...data.monthlyPayroll].isEmpty ? 100
                     : [...data.monthlyRevenue, ...data.monthlyPayroll].reduce((a, b) => a > b ? a : b) * 1.2),
@@ -183,8 +215,8 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
                   bottomTitles: AxisTitles(sideTitles: SideTitles(
                     showTitles: true,
                     getTitlesWidget: (value, meta) {
-                      final date = DateTime(2000, value.toInt() + 1);
-                      final monthStr = DateFormat.MMM(Localizations.localeOf(context).languageCode).format(date);
+                      if (value.toInt() < 0 || value.toInt() >= data.monthLabels.length) return const SizedBox();
+                      final monthStr = data.monthLabels[value.toInt()];
                       return Text(
                         monthStr.isNotEmpty ? monthStr[0] : '',
                         style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
@@ -208,7 +240,7 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
                 lineBarsData: [
                   // Revenue line
                   LineChartBarData(
-                    spots: List.generate(12, (i) => FlSpot(i.toDouble(), data.monthlyRevenue[i])),
+                    spots: List.generate(data.monthlyRevenue.length, (i) => FlSpot(i.toDouble(), data.monthlyRevenue[i])),
                     isCurved: true,
                     color: AppColors.green,
                     barWidth: 3,
@@ -217,7 +249,7 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
                   ),
                   // Payroll line
                   LineChartBarData(
-                    spots: List.generate(12, (i) => FlSpot(i.toDouble(), data.monthlyPayroll[i])),
+                    spots: List.generate(data.monthlyPayroll.length, (i) => FlSpot(i.toDouble(), data.monthlyPayroll[i])),
                     isCurved: true,
                     color: AppColors.amber,
                     barWidth: 3,
@@ -250,8 +282,10 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: AppColors.border)),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Table(
-                  columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(1), 2: FlexColumnWidth(1), 3: FlexColumnWidth(1), 4: FlexColumnWidth(1)},
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Table(
+                    defaultColumnWidth: const IntrinsicColumnWidth(),
                   children: [
                     TableRow(
                       decoration: const BoxDecoration(color: AppColors.surface),
@@ -276,11 +310,14 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
                         children: [
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            child: Row(children: [
-                              CircleAvatar(radius: 14, backgroundColor: AppColors.primary.withOpacity(0.1), child: Text(s.name.isNotEmpty ? s.name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold))),
-                              const SizedBox(width: 8),
-                              Flexible(child: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), overflow: TextOverflow.ellipsis)),
-                            ]),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircleAvatar(radius: 14, backgroundColor: AppColors.primary.withOpacity(0.1), child: Text(s.name.isNotEmpty ? s.name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.bold))),
+                                const SizedBox(width: 8),
+                                Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              ],
+                            ),
                           ),
                           _TableCell(text: '${s.jobCount}'),
                           _TableCell(text: '$currencySymbol${s.revenue.toStringAsFixed(0)}', color: AppColors.green),
@@ -297,19 +334,17 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
                 ),
               ),
             ),
+          ),
           const SizedBox(height: 80),
         ],
       ),
     );
   }
 
-  Future<_AnalyticsData> _computeAnalytics(WidgetRef ref, List<CleaningAssignment> allAssignments, int year) async {
+  Future<_AnalyticsData> _computeAnalytics(WidgetRef ref, List<CleaningAssignment> allAssignments, int year, bool isYearlyView) async {
     final properties = await ref.read(propertyRepositoryProvider).fetchAll();
     final users = await ref.read(userRepositoryProvider).fetchAll();
 
-    // Build lookups
-    final propFeeById = {for (var p in properties) p.id: p.cleaningFee};
-    final propFeeByName = {for (var p in properties) p.name: p.cleaningFee};
     final userById = {for (var u in users) u.id: u};
 
     // Filter to this year + approved/completed jobs
@@ -318,37 +353,103 @@ class _ReportsBodyState extends ConsumerState<_ReportsBody> {
       return date != null && date.year == year && (j.status == CleaningStatus.approved || j.status == CleaningStatus.pendingInspection);
     }).toList();
 
-    final monthlyCounts = List.filled(12, 0);
-    final monthlyRevenue = List.filled(12, 0.0);
-    final monthlyPayroll = List.filled(12, 0.0);
+    final now = ref.read(currentServerTimeProvider);
+    final endMonth = year == now.year ? now.month : 12;
+
+    final numMonths = isYearlyView ? 12 : 6;
+    final monthlyCounts = List.filled(numMonths, 0);
+    final monthlyRevenue = List.filled(numMonths, 0.0);
+    final monthlyPayroll = List.filled(numMonths, 0.0);
+    final List<String> monthLabels = [];
+
+    if (isYearlyView) {
+      for (int i = 0; i < 12; i++) {
+        monthLabels.add(DateFormat.MMM().format(DateTime(year, i + 1, 1)));
+      }
+    } else {
+      for (int i = 0; i < 6; i++) {
+        monthLabels.add(DateFormat.MMM().format(DateTime(year, endMonth - 5 + i, 1)));
+      }
+    }
+
     final Map<String, _CleanerStat> cleanerMap = {};
+    
+    double totalYearlyRevenue = 0.0;
+    double totalYearlyPayroll = 0.0;
 
     for (final job in yearJobs) {
       final date = DateTime.parse(job.date);
-      final month = date.month - 1;
-      final fee = propFeeById[job.propertyId] ?? propFeeByName[job.propertyId] ?? 0.0;
-      final user = userById[job.cleanerId];
-      final payRate = user?.payRate ?? 0.0;
+      
+      // Compute property cleanup fee correctly, with fallback for robust matching
+      final searchProp = job.propertyId.trim().toLowerCase();
+      Property? jobProp = properties.where((p) => p.id == job.propertyId).firstOrNull;
+      
+      if (jobProp == null) {
+        jobProp = properties.where((p) {
+          final propName = p.name.trim().toLowerCase();
+          final propIdStr = p.id.trim().toLowerCase();
+          final syncId = p.syncId.trim().toLowerCase();
+          return propName == searchProp || propIdStr == searchProp ||
+                 propName.contains(searchProp) || searchProp.contains(propName) ||
+                 (syncId.isNotEmpty && (syncId == searchProp || searchProp.contains(syncId)));
+        }).firstOrNull;
+      }
+      
+      double fee = job.propertyCleaningFee;
+      if (fee <= 0) {
+        fee = jobProp?.cleaningFee ?? 0.0;
+      }
+          
+      totalYearlyRevenue += fee;
 
-      monthlyCounts[month]++;
-      monthlyRevenue[month] += fee;
-      monthlyPayroll[month] += payRate;
+      // Map to chart array indices
+      int chartIdx;
+      if (isYearlyView) {
+        chartIdx = date.month - 1;
+      } else {
+        int monthsDiff = (year - date.year) * 12 + (endMonth - date.month);
+        if (monthsDiff >= 0 && monthsDiff < 6) {
+           chartIdx = 5 - monthsDiff;
+        } else {
+           chartIdx = -1;
+        }
+      }
 
-      cleanerMap.putIfAbsent(job.cleanerId, () => _CleanerStat(id: job.cleanerId, name: job.cleanerName));
-      cleanerMap[job.cleanerId]!.jobCount++;
-      cleanerMap[job.cleanerId]!.revenue += fee;
-      cleanerMap[job.cleanerId]!.payrollCost += payRate;
+      if (chartIdx >= 0 && chartIdx < numMonths) {
+         monthlyCounts[chartIdx]++;
+         monthlyRevenue[chartIdx] += fee;
+      }
+
+      // Aggregate payroll and individual cleaner stats
+      for (final cl in job.cleaners) {
+        double cleanerPay = cl.fee;
+        // Fallback for assignments without explicit fees (e.g. legacy or auto-calculated)
+        if (cleanerPay <= 0 && fee > 0) {
+          cleanerPay = (fee * 0.70) / job.cleaners.length;
+        }
+
+        totalYearlyPayroll += cleanerPay;
+        if (chartIdx >= 0 && chartIdx < numMonths) {
+          monthlyPayroll[chartIdx] += cleanerPay;
+        }
+
+        cleanerMap.putIfAbsent(cl.id, () => _CleanerStat(id: cl.id, name: cl.name));
+        cleanerMap[cl.id]!.jobCount++;
+        cleanerMap[cl.id]!.revenue += fee; // Revenue attributed to each cleaner who worked on the property
+        cleanerMap[cl.id]!.payrollCost += cleanerPay;
+      }
     }
 
     final cleanerStats = cleanerMap.values.toList()..sort((a, b) => b.revenue.compareTo(a.revenue));
 
     return _AnalyticsData(
       totalCleanings: yearJobs.length,
-      totalRevenue: monthlyRevenue.fold(0, (a, b) => a + b),
-      totalPayroll: monthlyPayroll.fold(0, (a, b) => a + b),
+      totalRevenue: totalYearlyRevenue,
+      totalPayroll: totalYearlyPayroll,
       monthlyCounts: monthlyCounts,
       monthlyRevenue: monthlyRevenue,
       monthlyPayroll: monthlyPayroll,
+      monthLabels: monthLabels,
       cleanerStats: cleanerStats,
     );
   }
@@ -363,6 +464,7 @@ class _AnalyticsData {
   final List<int> monthlyCounts;
   final List<double> monthlyRevenue;
   final List<double> monthlyPayroll;
+  final List<String> monthLabels;
   final List<_CleanerStat> cleanerStats;
 
   _AnalyticsData({
@@ -372,6 +474,7 @@ class _AnalyticsData {
     required this.monthlyCounts,
     required this.monthlyRevenue,
     required this.monthlyPayroll,
+    required this.monthLabels,
     required this.cleanerStats,
   });
 }
@@ -401,9 +504,9 @@ class _KpiCard extends StatelessWidget {
       width: 160,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

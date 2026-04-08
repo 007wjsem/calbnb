@@ -136,7 +136,9 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                                     children: [
                                       Text(company.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                       const SizedBox(height: 4),
-                                      Row(
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
                                         children: [
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -149,7 +151,6 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                                               style: TextStyle(fontSize: 11, color: company.status == SubscriptionStatus.active ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(
@@ -238,6 +239,7 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
     final adminEmailCtrl = TextEditingController();
     final adminPasswordCtrl = TextEditingController();
     bool isSaving = false;
+    bool createAdmin = true;
 
     showDialog(
       context: context,
@@ -270,29 +272,40 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                         decoration: const InputDecoration(labelText: 'Company Name', prefixIcon: Icon(Icons.business_outlined)),
                         enabled: !isSaving,
                       ),
-                      const SizedBox(height: 24),
-                      const Text('Initial Administrator', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      const Divider(),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: adminNameCtrl,
-                        decoration: const InputDecoration(labelText: 'Admin Name', prefixIcon: Icon(Icons.person_outline)),
-                        enabled: !isSaving,
+                      const SizedBox(height: 20),
+                      SwitchListTile(
+                        title: const Text('Create with Administrator', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        subtitle: const Text('If disabled, you will need to add an admin later.', style: TextStyle(fontSize: 12)),
+                        value: createAdmin,
+                        onChanged: isSaving ? null : (val) => setState(() => createAdmin = val),
+                        activeColor: AppColors.primary,
+                        contentPadding: EdgeInsets.zero,
                       ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: adminEmailCtrl,
-                        decoration: const InputDecoration(labelText: 'Admin Email', prefixIcon: Icon(Icons.email_outlined)),
-                        keyboardType: TextInputType.emailAddress,
-                        enabled: !isSaving,
-                      ),
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: adminPasswordCtrl,
-                        decoration: const InputDecoration(labelText: 'Temp Password', prefixIcon: Icon(Icons.lock_outline)),
-                        obscureText: true,
-                        enabled: !isSaving,
-                      ),
+                      if (createAdmin) ...[
+                        const SizedBox(height: 16),
+                        const Text('Initial Administrator', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        const Divider(),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: adminNameCtrl,
+                          decoration: const InputDecoration(labelText: 'Admin Name', prefixIcon: Icon(Icons.person_outline)),
+                          enabled: !isSaving,
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: adminEmailCtrl,
+                          decoration: const InputDecoration(labelText: 'Admin Email', prefixIcon: Icon(Icons.email_outlined)),
+                          keyboardType: TextInputType.emailAddress,
+                          enabled: !isSaving,
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: adminPasswordCtrl,
+                          decoration: const InputDecoration(labelText: 'Temp Password', prefixIcon: Icon(Icons.lock_outline)),
+                          obscureText: true,
+                          enabled: !isSaving,
+                        ),
+                      ],
                       const SizedBox(height: 28),
                       if (isSaving)
                         const Center(child: CircularProgressIndicator())
@@ -312,9 +325,16 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                                 final adminEmail = adminEmailCtrl.text.trim();
                                 final adminPass = adminPasswordCtrl.text;
 
-                                if (compName.isEmpty || adminName.isEmpty || adminEmail.isEmpty || adminPass.length < 6) {
+                                if (compName.isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Please fill all fields. Password > 6 chars.')),
+                                    const SnackBar(content: Text('Please enter a company name.')),
+                                  );
+                                  return;
+                                }
+
+                                if (createAdmin && (adminName.isEmpty || adminEmail.isEmpty || adminPass.length < 6)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Please fill all admin fields. Password > 6 chars.')),
                                   );
                                   return;
                                 }
@@ -339,26 +359,28 @@ class _CompanyManagementScreenState extends ConsumerState<CompanyManagementScree
                                   // 3. Save Company
                                   await ref.read(companyRepositoryProvider).createCompany(newCompany);
 
-                                  // 4. Create Admin User
-                                  final newUser = User(
-                                    id: '', // Will be set by Firebase Auth
-                                    username: adminName,
-                                    role: AppRole.administrator,
-                                    isActive: true,
-                                  );
+                                  // 4. Create Admin User (Optional)
+                                  if (createAdmin) {
+                                    final newUser = User(
+                                      id: '', // Will be set by Firebase Auth
+                                      username: adminName,
+                                      role: AppRole.administrator,
+                                      isActive: true,
+                                    );
 
-                                  await UserRepository().add(
-                                    email: adminEmail,
-                                    password: adminPass,
-                                    user: newUser,
-                                    companyIds: [newCompanyId],
-                                    activeCompanyId: newCompanyId,
-                                  );
+                                    await UserRepository().add(
+                                      email: adminEmail,
+                                      password: adminPass,
+                                      user: newUser,
+                                      companyIds: [newCompanyId],
+                                      activeCompanyId: newCompanyId,
+                                    );
+                                  }
 
                                   if (context.mounted) {
                                     Navigator.pop(context);
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Company and Admin created successfully!')),
+                                      SnackBar(content: Text(createAdmin ? 'Company and Admin created successfully!' : 'Company created successfully!')),
                                     );
                                   }
                                 } catch (e) {

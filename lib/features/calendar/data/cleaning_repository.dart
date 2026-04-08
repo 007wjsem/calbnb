@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:http/http.dart' as http;
@@ -41,9 +42,19 @@ final dailyCleaningAssignmentsProvider = StreamProvider.family<List<CleaningAssi
     await for (final event in stream) {
       if (!event.snapshot.exists || event.snapshot.value == null) { yield []; continue; }
       final rawData = event.snapshot.value;
-      if (rawData is! Map) { yield []; continue; }
+      
+      final Iterable<MapEntry<dynamic, dynamic>> entries;
+      if (rawData is Map) {
+        entries = rawData.entries;
+      } else if (rawData is List) {
+        entries = List<dynamic>.from(rawData).asMap().entries;
+      } else {
+        yield [];
+        continue;
+      }
+
       final assignments = <CleaningAssignment>[];
-      for (final entry in (rawData).entries) {
+      for (final entry in entries) {
         if (entry.value is! Map) continue;
         try { assignments.add(CleaningAssignment.fromMap(entry.key.toString(), Map<dynamic, dynamic>.from(entry.value as Map))); } catch (_) {}
       }
@@ -54,37 +65,58 @@ final dailyCleaningAssignmentsProvider = StreamProvider.family<List<CleaningAssi
     final companyIds = await _fetchCompanyIds();
     if (companyIds.isEmpty) { yield []; return; }
 
-    // Combine streams from all companies
-    final streams = companyIds.map((id) =>
-        FirebaseDatabase.instance.ref('companies/$id/cleaning_assignments/$dateStr').onValue
-    ).toList();
-
-    // Merge by keeping a per-company result map and yielding combined list on any update
-    final Map<int, List<CleaningAssignment>> resultsMap = {};
-    for (var i = 0; i < streams.length; i++) {
-      resultsMap[i] = [];
+    final Map<String, List<CleaningAssignment>> resultsMap = {};
+    for (final id in companyIds) {
+      resultsMap[id] = [];
     }
 
-    // Yield initial empty
-    yield [];
+    yield []; // Yield initial empty
 
-    // Listen to all streams and combine results
-    final futures = <Future>[];
-    for (var i = 0; i < streams.length; i++) {
-      final idx = i;
-      futures.add(streams[idx].forEach((event) {
+    // We don't have rxdart, so we use a StreamController to merge events natively
+    final controller = StreamController<List<CleaningAssignment>>();
+    final subscriptions = <StreamSubscription>[];
+
+    void emitUpdate() {
+      if (!controller.isClosed) {
+        controller.add(resultsMap.values.expand((l) => l).toList());
+      }
+    }
+
+    for (final id in companyIds) {
+      final sub = FirebaseDatabase.instance.ref('companies/$id/cleaning_assignments/$dateStr').onValue.listen((event) {
         final assignments = <CleaningAssignment>[];
-        if (event.snapshot.exists && event.snapshot.value is Map) {
-          for (final entry in (event.snapshot.value as Map<dynamic, dynamic>).entries) {
+        if (event.snapshot.exists && event.snapshot.value != null) {
+          final rawData = event.snapshot.value;
+          final Iterable<MapEntry<dynamic, dynamic>> entries;
+          if (rawData is Map) {
+            entries = rawData.entries;
+          } else if (rawData is List) {
+            entries = List<dynamic>.from(rawData).asMap().entries;
+          } else {
+            resultsMap[id] = [];
+            emitUpdate();
+            return;
+          }
+
+          for (final entry in entries) {
             if (entry.value is! Map) continue;
             try { assignments.add(CleaningAssignment.fromMap(entry.key.toString(), Map<dynamic, dynamic>.from(entry.value as Map))); } catch (_) {}
           }
         }
-        resultsMap[idx] = assignments;
-      }));
+        resultsMap[id] = assignments;
+        emitUpdate();
+      });
+      subscriptions.add(sub);
     }
-    await Future.any(futures);
-    yield resultsMap.values.expand((l) => l).toList();
+
+    ref.onDispose(() {
+      for (final sub in subscriptions) {
+        sub.cancel();
+      }
+      controller.close();
+    });
+
+    yield* controller.stream;
   }
 });
 
@@ -111,28 +143,73 @@ final allCleaningAssignmentsProvider = StreamProvider<List<CleaningAssignment>>(
   } else {
     final companyIds = await _fetchCompanyIds();
     if (companyIds.isEmpty) { yield []; return; }
-    yield [];
-    // Watch the cleaning_assignments node for each company individually
+    
+    yield []; // Yield initial empty
+
+    final controller = StreamController<List<CleaningAssignment>>();
     final Map<String, List<CleaningAssignment>> resultsPerCompany = {};
     for (final id in companyIds) {
-      FirebaseDatabase.instance.ref('companies/$id/cleaning_assignments').onValue.listen((event) {
+      resultsPerCompany[id] = [];
+    }
+
+    void emitUpdate() {
+      if (!controller.isClosed) {
+        controller.add(resultsPerCompany.values.expand((l) => l).toList());
+      }
+    }
+
+    final subscriptions = <StreamSubscription>[];
+    for (final id in companyIds) {
+      final sub = FirebaseDatabase.instance.ref('companies/$id/cleaning_assignments').onValue.listen((event) {
         final assignments = <CleaningAssignment>[];
         final rawData = event.snapshot.value;
-        if (rawData is Map) {
-          for (final dateEntry in (rawData).entries) {
-            if (dateEntry.value is! Map) continue;
-            for (final entry in (dateEntry.value as Map<dynamic, dynamic>).entries) {
-              if (entry.value is! Map) continue;
-              try { assignments.add(CleaningAssignment.fromMap(entry.key.toString(), Map<dynamic, dynamic>.from(entry.value as Map))); } catch (_) {}
+        if (rawData != null) {
+          final Iterable<MapEntry<dynamic, dynamic>> dateEntries;
+          if (rawData is Map) {
+            dateEntries = rawData.entries;
+          } else if (rawData is List) {
+            dateEntries = List<dynamic>.from(rawData).asMap().entries;
+          } else {
+            return;
+          }
+
+          for (final dateEntry in dateEntries) {
+            final assignmentsValue = dateEntry.value;
+            if (assignmentsValue == null) continue;
+            
+            final Iterable<MapEntry<dynamic, dynamic>> assignEntries;
+            if (assignmentsValue is Map) {
+              assignEntries = assignmentsValue.entries;
+            } else if (assignmentsValue is List) {
+              assignEntries = List<dynamic>.from(assignmentsValue).asMap().entries;
+            } else {
+              continue;
+            }
+
+            for (final entry in assignEntries) {
+              final v = entry.value;
+              if (v is Map) {
+                try {
+                  assignments.add(CleaningAssignment.fromMap(entry.key.toString(), Map<dynamic, dynamic>.from(v)));
+                } catch (_) {}
+              }
             }
           }
         }
         resultsPerCompany[id] = assignments;
+        emitUpdate();
       });
+      subscriptions.add(sub);
     }
-    // Single initial emit after brief delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    yield resultsPerCompany.values.expand((l) => l).toList();
+
+    ref.onDispose(() {
+      for (final sub in subscriptions) {
+        sub.cancel();
+      }
+      controller.close();
+    });
+
+    yield* controller.stream;
   }
 });
 
@@ -147,14 +224,40 @@ final dateRangeCleaningAssignmentsProvider = StreamProvider.family<List<Cleaning
 
   final isSuperAdmin = repo.activeCompanyId == null;
 
-  void processDateRange(Map<dynamic, dynamic> cleaningsMap, List<CleaningAssignment> out) {
-    for (final dateEntry in cleaningsMap.entries) {
+  void processDateRange(dynamic cleaningsValue, List<CleaningAssignment> out) {
+    if (cleaningsValue == null) return;
+    
+    final Iterable<MapEntry<dynamic, dynamic>> dateEntries;
+    if (cleaningsValue is Map) {
+      dateEntries = cleaningsValue.entries;
+    } else if (cleaningsValue is List) {
+      dateEntries = List<dynamic>.from(cleaningsValue).asMap().entries;
+    } else {
+      return;
+    }
+
+    for (final dateEntry in dateEntries) {
       final dateKey = dateEntry.key.toString();
       if (dateKey.compareTo(startStr) >= 0 && dateKey.compareTo(endStr) <= 0) {
-        if (dateEntry.value is! Map) continue;
-        for (final assignmentEntry in (dateEntry.value as Map<dynamic, dynamic>).entries) {
-          if (assignmentEntry.value is! Map) continue;
-          try { out.add(CleaningAssignment.fromMap(assignmentEntry.key.toString(), Map<dynamic, dynamic>.from(assignmentEntry.value as Map))); } catch (_) {}
+        final assignmentsValue = dateEntry.value;
+        if (assignmentsValue == null) continue;
+        
+        final Iterable<MapEntry<dynamic, dynamic>> assignEntries;
+        if (assignmentsValue is Map) {
+          assignEntries = assignmentsValue.entries;
+        } else if (assignmentsValue is List) {
+          assignEntries = List<dynamic>.from(assignmentsValue).asMap().entries;
+        } else {
+          continue;
+        }
+
+        for (final entry in assignEntries) {
+          final v = entry.value;
+          if (v is Map) {
+            try {
+              out.add(CleaningAssignment.fromMap(entry.key.toString(), Map<dynamic, dynamic>.from(v)));
+            } catch (_) {}
+          }
         }
       }
     }
@@ -164,28 +267,48 @@ final dateRangeCleaningAssignmentsProvider = StreamProvider.family<List<Cleaning
     final stream = repo._getDbForCompany(repo.activeCompanyId!).child('cleaning_assignments').onValue;
     await for (final event in stream) {
       if (!event.snapshot.exists || event.snapshot.value == null) { yield []; continue; }
-      if (event.snapshot.value is! Map) { yield []; continue; }
       final assignments = <CleaningAssignment>[];
-      processDateRange(Map<dynamic, dynamic>.from(event.snapshot.value as Map), assignments);
+      processDateRange(event.snapshot.value, assignments);
       yield assignments;
     }
   } else {
     final companyIds = await _fetchCompanyIds();
     if (companyIds.isEmpty) { yield []; return; }
-    yield [];
+    
+    yield []; // Yield initial empty
+
+    final controller = StreamController<List<CleaningAssignment>>();
     final Map<String, List<CleaningAssignment>> resultsPerCompany = {};
     for (final id in companyIds) {
-      FirebaseDatabase.instance.ref('companies/$id/cleaning_assignments').onValue.listen((event) {
-        final assignments = <CleaningAssignment>[];
-        final rawData = event.snapshot.value;
-        if (rawData is Map) {
-          processDateRange(Map<dynamic, dynamic>.from(rawData), assignments);
-        }
-        resultsPerCompany[id] = assignments;
-      });
+      resultsPerCompany[id] = [];
     }
-    await Future.delayed(const Duration(milliseconds: 500));
-    yield resultsPerCompany.values.expand((l) => l).toList();
+
+    void emitUpdate() {
+      if (!controller.isClosed) {
+        controller.add(resultsPerCompany.values.expand((l) => l).toList());
+      }
+    }
+
+    final subscriptions = <StreamSubscription>[];
+
+    for (final id in companyIds) {
+      final sub = FirebaseDatabase.instance.ref('companies/$id/cleaning_assignments').onValue.listen((event) {
+        final assignments = <CleaningAssignment>[];
+        processDateRange(event.snapshot.value, assignments);
+        resultsPerCompany[id] = assignments;
+        emitUpdate();
+      });
+      subscriptions.add(sub);
+    }
+
+    ref.onDispose(() {
+      for (final sub in subscriptions) {
+        sub.cancel();
+      }
+      controller.close();
+    });
+
+    yield* controller.stream;
   }
 });
 

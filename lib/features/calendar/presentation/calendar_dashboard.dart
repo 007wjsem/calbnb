@@ -11,8 +11,11 @@ import '../../auth/domain/user.dart';
 import '../../admin/presentation/user_management_screen.dart';
 import '../../admin/data/property_repository.dart';
 import '../../../core/constants/roles.dart';
+import '../../../core/data/server_time_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import '../../company/presentation/currency_provider.dart';
+import '../../company/data/company_repository.dart';
+import '../../company/domain/subscription.dart';
 import 'package:calbnb/l10n/app_localizations.dart';
 
 enum CalendarViewType { daily, board, timeline }
@@ -25,7 +28,7 @@ class CalendarDashboard extends ConsumerStatefulWidget {
 }
 
 class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
-  DateTime _selectedDate = DateTime.now();
+  DateTime? _selectedDate;
   CalendarViewType _viewType = CalendarViewType.daily;
 
   // Controllers for synchronized scrolling in Timeline view
@@ -65,6 +68,14 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
         _timelineVerticalLabelController.jumpTo(_timelineVerticalGridController.offset);
       }
     });
+
+    // Initialize date from server time
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final serverTime = ref.read(currentServerTimeProvider);
+      setState(() {
+        _selectedDate = serverTime;
+      });
+    });
   }
 
   @override
@@ -78,12 +89,16 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final dateQuery = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+    if (_selectedDate == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    
+    final serverTime = ref.watch(currentServerTimeProvider);
+    final dateQuery = DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day);
     final currentUser = ref.watch(authControllerProvider);
     final canAssign = currentUser?.role.displayName == 'Super Admin' ||
         currentUser?.role.displayName == 'Administrator' ||
         currentUser?.role.displayName == 'Manager';
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final l10n = AppLocalizations.of(context)!;
 
     return Padding(
       padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
@@ -99,7 +114,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
               SizedBox(
                 width: isMobile ? double.infinity : null,
                 child: Text(
-                  AppLocalizations.of(context)!.todaysActivities,
+                  l10n.todaysActivities,
                   style: Theme.of(context).textTheme.headlineMedium,
                   textAlign: isMobile ? TextAlign.center : TextAlign.start,
                 ),
@@ -114,12 +129,12 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                       icon: const Icon(Icons.chevron_left),
                       onPressed: () {
                         setState(() {
-                          _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                          _selectedDate = _selectedDate!.subtract(const Duration(days: 1));
                         });
                       },
                     ),
                     Text(
-                      DateFormat.yMMMd().format(_selectedDate),
+                      DateFormat.yMMMd().format(_selectedDate!),
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     IconButton(
@@ -127,11 +142,11 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                       onPressed: (currentUser?.role.displayName != 'Super Admin' &&
                               currentUser?.role.displayName != 'Administrator' &&
                               currentUser?.role.displayName != 'Manager' &&
-                              _selectedDate.isAfter(DateTime.now().subtract(const Duration(days: 1))))
+                              _selectedDate!.isAfter(serverTime.subtract(const Duration(days: 1))))
                           ? null
                           : () {
                               setState(() {
-                                _selectedDate = _selectedDate.add(const Duration(days: 1));
+                                _selectedDate = _selectedDate!.add(const Duration(days: 1));
                               });
                             },
                     ),
@@ -165,7 +180,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
           const SizedBox(height: 24),
           Expanded(
             child: _viewType == CalendarViewType.timeline
-                ? _buildTimelineView(context, dateQuery, currentUser, canAssign)
+                ? _buildTimelineView(context, dateQuery, currentUser, canAssign, serverTime)
                 : _viewType == CalendarViewType.board
                     ? _buildBoardView(context, dateQuery, currentUser, canAssign)
                     : _buildDailyView(context, dateQuery, currentUser, canAssign),
@@ -179,13 +194,14 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
   // DAILY VIEW
   // ─────────────────────────────────────────────────────────────
   Widget _buildDailyView(BuildContext context, DateTime dateQuery, User? currentUser, bool canAssign) {
+    final l10n = AppLocalizations.of(context)!;
     final reservationsAsync = ref.watch(dailyReservationsProvider(dateQuery));
     final assignmentsAsync = ref.watch(dailyCleaningAssignmentsProvider(dateQuery));
 
     return reservationsAsync.when(
       data: (reservations) {
         if (reservations.isEmpty) {
-          return Center(child: Text(AppLocalizations.of(context)!.noActivities));
+          return Center(child: Text(l10n.noActivities));
         }
         return assignmentsAsync.when(
           data: (assignments) {
@@ -195,7 +211,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
               final assignment = assignments.where((a) => a.reservationId == res.id).firstOrNull;
               if (currentUser?.role == AppRole.cleaner) {
                 if (isCheckIn) return false;
-                if (assignment == null || assignment.cleanerId != currentUser?.id) return false;
+                if (assignment == null || !assignment.cleaners.any((c) => c.id == currentUser?.id)) return false;
               } else if (currentUser?.role == AppRole.inspector) {
                 if (isCheckIn) return false;
                 if (assignment == null || assignment.inspectorId != currentUser?.id) return false;
@@ -231,7 +247,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
             });
 
             if (finalGroups.isEmpty) {
-              return Center(child: Text(AppLocalizations.of(context)!.noActivities));
+              return Center(child: Text(l10n.noActivities));
             }
 
             return ListView.builder(
@@ -247,60 +263,112 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                         ? () => _showCleaningAssignmentDialog(context, ref, res, dateQuery, assignment)
                         : null,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
-                      child: ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: isCheckIn ? Colors.green.shade100 : Colors.red.shade100,
-                          child: Icon(
-                            isCheckIn ? Icons.login : Icons.logout,
-                            color: isCheckIn ? Colors.green : Colors.red,
+                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                      child: Row(
+                        children: [
+                          // Leading Icon
+                          CircleAvatar(
+                            backgroundColor: isCheckIn ? Colors.green.shade100 : Colors.red.shade100,
+                            radius: 20,
+                            child: Icon(
+                              isCheckIn ? Icons.login : Icons.logout,
+                              color: isCheckIn ? Colors.green : Colors.red,
+                              size: 20,
+                            ),
                           ),
-                        ),
-                        title: Text(res.guestName),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(res.propertyName),
-                            if (!isCheckIn && assignment != null) ...[
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.cleaning_services, size: 14, color: Colors.blueGrey),
-                                  const SizedBox(width: 4),
-                                  Text('Cleaner: ${assignment.cleanerName}',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                                  if (assignment.inspectorName != null) ...[
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.verified_user, size: 14, color: Colors.blueGrey),
-                                    const SizedBox(width: 4),
-                                    Text('Inspector: ${assignment.inspectorName}',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                                  ],
+                          const SizedBox(width: 12),
+                          // Middle Content
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  res.guestName == 'Reserved' ? l10n.reservedLabel : res.guestName,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  res.propertyName,
+                                  style: const TextStyle(fontSize: 13, color: Colors.blueGrey),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (!isCheckIn && assignment != null) ...[
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(Icons.cleaning_services, size: 14, color: Colors.blueGrey),
+                                          const SizedBox(width: 4),
+                                          Flexible(
+                                            child: Text(
+                                              l10n.cleanerLabel(assignment.cleaners.map((c) => c.name).join(', ')),
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (assignment.inspectorName != null) ...[
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.verified_user, size: 14, color: Colors.blueGrey),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                l10n.inspectorLabel(assignment.inspectorName!),
+                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.info_outline, size: 14, color: Colors.blueGrey),
+                                      const SizedBox(width: 4),
+                                      Flexible(
+                                        child: Text(
+                                          '${l10n.statusLabel}: ${assignment.status.localizedName(l10n)}',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.info_outline, size: 14, color: Colors.blueGrey),
-                                  const SizedBox(width: 4),
-                                  Text('Status: ${assignment.status.name}',
-                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isCheckIn ? Colors.green : Colors.red,
-                            borderRadius: BorderRadius.circular(12),
+                              ],
+                            ),
                           ),
-                          child: Text(
-                            isCheckIn ? 'CHECK-IN' : 'CHECK-OUT',
-                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                          const SizedBox(width: 12),
+                          // Trailing Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isCheckIn ? Colors.green : Colors.red,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              isCheckIn ? l10n.checkInBadge : l10n.checkOutBadge,
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   );
@@ -312,10 +380,10 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      buildReservationRow(group[0]),
-                      if (group.length > 1) ...[
-                        const Divider(height: 1, thickness: 1, color: Colors.black12),
-                        buildReservationRow(group[1]),
+                      for (int i = 0; i < group.length; i++) ...[
+                        buildReservationRow(group[i]),
+                        if (i < group.length - 1)
+                          const Divider(height: 1, thickness: 1, color: Colors.black12),
                       ],
                     ],
                   ),
@@ -336,6 +404,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
   // BOARD VIEW (Kanban columns by day)
   // ─────────────────────────────────────────────────────────────
   Widget _buildBoardView(BuildContext context, DateTime dateQuery, User? currentUser, bool canAssign) {
+    final l10n = AppLocalizations.of(context)!;
     final endDate = dateQuery.add(const Duration(days: 30));
     final dateRangeAsync = ref.watch(dateRangeReservationsProvider(dateQuery, endDate));
     final assignmentsAsync = ref.watch(dateRangeCleaningAssignmentsProvider((dateQuery, endDate)));
@@ -358,7 +427,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                   final assignment = assignments.where((a) => a.reservationId == res.id).firstOrNull;
                   if (currentUser?.role == AppRole.cleaner) {
                     if (isCheckIn) return false;
-                    if (assignment == null || assignment.cleanerId != currentUser?.id) return false;
+                    if (assignment == null || !assignment.cleaners.any((c) => c.id == currentUser?.id)) return false;
                   } else if (currentUser?.role == AppRole.inspector) {
                     if (isCheckIn) return false;
                     if (assignment == null || assignment.inspectorId != currentUser?.id) return false;
@@ -477,7 +546,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                                                   const SizedBox(width: 4),
                                                   Expanded(
                                                     child: Text(
-                                                      '${assignment.cleanerName} (${assignment.status.name})',
+                                                      '${assignment.cleaners.map((c) => c.name).join(', ')} (${assignment.status.localizedName(l10n)})',
                                                       style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey),
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,
@@ -505,10 +574,10 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  buildBoardRow(group[0]),
-                                  if (group.length > 1) ...[
-                                    const Divider(height: 1, thickness: 1, color: Colors.black12),
-                                    buildBoardRow(group[1]),
+                                  for (int i = 0; i < group.length; i++) ...[
+                                    buildBoardRow(group[i]),
+                                    if (i < group.length - 1)
+                                      const Divider(height: 1, thickness: 1, color: Colors.black12),
                                   ],
                                 ],
                               ),
@@ -534,7 +603,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
   // ─────────────────────────────────────────────────────────────
   // TIMELINE VIEW (Gantt-style)
   // ─────────────────────────────────────────────────────────────
-  Widget _buildTimelineView(BuildContext context, DateTime dateQuery, User? currentUser, bool canAssign) {
+  Widget _buildTimelineView(BuildContext context, DateTime dateQuery, User? currentUser, bool canAssign, DateTime serverTime) {
     const double kCellWidth = 100.0;
     const double kRowHeight = 80.0;
     const int kDaysCount = 31;
@@ -572,7 +641,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                           children: List.generate(kDaysCount, (i) {
                             final date = dateQuery.add(Duration(days: i));
                             final isToday = DateFormat('yyyy-MM-dd').format(date) ==
-                                DateFormat('yyyy-MM-dd').format(DateTime.now());
+                                DateFormat('yyyy-MM-dd').format(serverTime);
                             return Container(
                               width: kCellWidth,
                               height: 50,
@@ -737,7 +806,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                                               Flexible(
                                                 child: Text(
                                                   assignment != null
-                                                      ? '${res.guestName} (${assignment.cleanerName})'
+                                                      ? '${res.guestName} (${assignment.cleaners.map((c) => c.name).join(', ')})'
                                                       : res.guestName,
                                                   style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                                                   overflow: TextOverflow.ellipsis,
@@ -770,9 +839,6 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
     );
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // ASSIGNMENT DIALOG
-  // ─────────────────────────────────────────────────────────────
   void _showCleaningAssignmentDialog(BuildContext context, WidgetRef ref, Reservation reservation, DateTime date,
       CleaningAssignment? existingAssignment) async {
     final userRepository = ref.read(userRepositoryProvider);
@@ -789,15 +855,50 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
       return;
     }
 
-    String? selectedCleanerId = existingAssignment?.cleanerId;
+    final companyAsync = ref.read(companyProvider(reservation.companyId)).value;
+    final isGoldOrHigher = companyAsync != null && companyAsync.tier.index >= SubscriptionTier.gold.index;
+
+    // Initialize list of assigned cleaners
+    List<CleanerWithFee> assignedCleaners = existingAssignment?.cleaners ?? [];
+    if (assignedCleaners.isEmpty && existingAssignment == null) {
+      // Start with one empty slot if new
+      assignedCleaners = [];
+    }
+    
+    String? mainCleanerId = existingAssignment?.mainCleanerId;
     String? selectedInspectorId = existingAssignment?.inspectorId;
     final observationController = TextEditingController(text: existingAssignment?.observation ?? '');
-    final dateStr = defaultDateFormatter.format(date);
-
-    // Fetch property details to show instructions
+    
+    // Fetch property details to show instructions & calculate fee
     final propertyRepository = ref.read(propertyRepositoryProvider);
     final allProperties = await propertyRepository.fetchAll();
-    final property = allProperties.where((p) => p.name == reservation.propertyName.split(',').first.trim()).firstOrNull;
+    
+    var property;
+    if (reservation.propertyId != null) {
+      property = allProperties.where((p) => p.id == reservation.propertyId).firstOrNull;
+    }
+    if (property == null) {
+      final searchName = reservation.propertyName.split(',').first.trim().toLowerCase();
+      property = allProperties.where((p) {
+        final propName = p.name.trim().toLowerCase();
+        return propName == searchName || propName.contains(searchName) || searchName.contains(propName);
+      }).firstOrNull;
+    }
+
+    final initialPropFee = existingAssignment != null && existingAssignment.propertyCleaningFee > 0
+        ? existingAssignment.propertyCleaningFee.toInt().toString()
+        : (property != null ? property.cleaningFee.toInt().toString() : '0');
+
+    final propertyCleaningFeeController = TextEditingController(text: initialPropFee);
+
+    // Initial setup for the first cleaner if adding new assignment and list is empty
+    if (assignedCleaners.isEmpty && existingAssignment == null) {
+       final defaultFee = property != null ? (property.cleaningFee * 0.7).floorToDouble() : 0.0;
+       // We don't add one by default yet so the user has to select one from the dropdown first 
+       // unless we want to preset the first dropdown.
+    }
+
+    final dateStr = defaultDateFormatter.format(date);
 
     if (!context.mounted) return;
 
@@ -806,6 +907,19 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final l10n = AppLocalizations.of(context)!;
+            
+            // Helper to add a cleaner
+            void addCleaner(String id) {
+              if (assignedCleaners.any((c) => c.id == id)) return;
+              final user = cleaners.firstWhere((u) => u.id == id);
+              final defaultFee = property != null ? (property.cleaningFee * 0.7).floorToDouble() : 0.0;
+              setState(() {
+                assignedCleaners.add(CleanerWithFee(id: id, name: user.username, fee: defaultFee));
+                if (mainCleanerId == null) mainCleanerId = id;
+              });
+            }
+
             return DefaultTabController(
               length: existingAssignment != null ? 2 : 1,
               child: Dialog(
@@ -829,22 +943,25 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 16,
+                        runSpacing: 8,
                         children: [
-                          const Text(
-                            'Assignment Details',
-                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          Text(
+                            l10n.assignmentDetailsTitle,
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                           ),
-                          if (existingAssignment != null)
-                            TabBar(
-                              isScrollable: true,
+                            if (existingAssignment != null)
+                              TabBar(
+                                isScrollable: true,
                               indicatorSize: TabBarIndicatorSize.label,
                               labelColor: Colors.blue.shade900,
                               unselectedLabelColor: Colors.blueGrey,
-                              tabs: const [
-                                Tab(text: 'Settings'),
-                                Tab(text: 'Feedback'),
+                              tabs: [
+                                Tab(text: l10n.settingsTabLabel),
+                                Tab(text: l10n.feedbackTabLabel),
                               ],
                             ),
                         ],
@@ -873,7 +990,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                       Flexible(
                         child: SingleChildScrollView(
                           child: SizedBox(
-                            height: 450,
+                            height: 480,
                             child: TabBarView(
                               children: [
                                 // Tab 1: Assignment Settings & Instructions
@@ -882,60 +999,178 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                                     crossAxisAlignment: CrossAxisAlignment.stretch,
                                     children: [
                                       const SizedBox(height: 8),
-                                      DropdownButtonFormField<String>(
-                                        value: selectedCleanerId,
-                                        decoration: InputDecoration(
-                                          labelText: 'Select Cleaner',
-                                          prefixIcon: const Icon(Icons.cleaning_services_rounded),
-                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                          filled: true,
-                                          fillColor: Colors.grey.withValues(alpha: 0.05),
+                                      
+                                      // Cleaners Selection Section
+                                      Text(l10n.selectCleanerLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      const SizedBox(height: 8),
+                                      
+                                      // Existing assigned cleaners list
+                                      if (assignedCleaners.isNotEmpty)
+                                        ...assignedCleaners.asMap().entries.map((entry) {
+                                          final idx = entry.key;
+                                          final assigned = entry.value;
+                                          return Container(
+                                            margin: const EdgeInsets.only(bottom: 8),
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.withValues(alpha: 0.05),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: mainCleanerId == assigned.id ? Colors.blue.shade300 : Colors.grey.shade300),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(assigned.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                    ),
+                                                    if (mainCleanerId == assigned.id)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(8)),
+                                                        child: Text(l10n.mainCleanerLabel, style: TextStyle(fontSize: 10, color: Colors.blue.shade900, fontWeight: FontWeight.bold)),
+                                                      )
+                                                    else
+                                                      TextButton(
+                                                        onPressed: () => setState(() => mainCleanerId = assigned.id),
+                                                        child: Text(l10n.mainCleanerLabel, style: const TextStyle(fontSize: 12)),
+                                                      ),
+                                                    IconButton(
+                                                      icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                                                      onPressed: () => setState(() {
+                                                        assignedCleaners.removeAt(idx);
+                                                        if (mainCleanerId == assigned.id) {
+                                                          mainCleanerId = assignedCleaners.isNotEmpty ? assignedCleaners.first.id : null;
+                                                        }
+                                                      }),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: TextField(
+                                                        decoration: InputDecoration(
+                                                          labelText: l10n.individualFeeLabel(assigned.name),
+                                                          prefixIcon: const Icon(Icons.attach_money, size: 16),
+                                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                        ),
+                                                        keyboardType: TextInputType.number,
+                                                        onChanged: (val) {
+                                                          final fee = double.tryParse(val) ?? 0.0;
+                                                          assignedCleaners[idx] = CleanerWithFee(id: assigned.id, name: assigned.name, fee: fee);
+                                                        },
+                                                        controller: TextEditingController(text: assigned.fee.toInt().toString())
+                                                          ..selection = TextSelection.fromPosition(TextPosition(offset: assigned.fee.toInt().toString().length)),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }),
+                                      
+                                      if (assignedCleaners.isEmpty || isGoldOrHigher)
+                                        DropdownButtonFormField<String>(
+                                          decoration: InputDecoration(
+                                            labelText: l10n.addCleanerAction,
+                                            prefixIcon: const Icon(Icons.person_add_outlined),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                            filled: true,
+                                            fillColor: Colors.grey.withValues(alpha: 0.05),
+                                          ),
+                                          items: cleaners
+                                              .map((emp) => DropdownMenuItem(value: emp.id, child: Text(emp.username)))
+                                              .toList(),
+                                          onChanged: (val) {
+                                            if (val != null) addCleaner(val);
+                                          },
                                         ),
-                                        items: cleaners
-                                            .map((emp) => DropdownMenuItem(value: emp.id, child: Text(emp.username)))
-                                            .toList(),
-                                        onChanged: (val) => setState(() => selectedCleanerId = val),
-                                      ),
-                                      if (selectedCleanerId != null && existingAssignment != null)
+                                      
+                                      if (mainCleanerId != null && existingAssignment != null)
                                         Padding(
                                           padding: const EdgeInsets.only(top: 8.0),
                                           child: Align(
                                             alignment: Alignment.centerRight,
-                                            child: TextButton.icon(
-                                              icon: const Icon(Icons.wechat_rounded, color: Colors.green),
-                                              label: const Text('Message Cleaner on WhatsApp',
-                                                  style: TextStyle(color: Colors.green)),
-                                              onPressed: () async {
-                                                final cleaner =
-                                                    cleaners.firstWhere((c) => c.id == selectedCleanerId);
-                                                if (cleaner.phone?.isNotEmpty ?? false) {
-                                                  final message =
-                                                      'Hello ${cleaner.username}! You have a cleaning assignment on ${defaultDateFormatter.format(date)} at ${reservation.propertyName}.';
-                                                  final whatsappUrl = Uri.parse(
-                                                      'https://wa.me/${cleaner.phone}?text=${Uri.encodeComponent(message)}');
-                                                  if (await canLaunchUrl(whatsappUrl)) {
-                                                    await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+                                            child: Builder(builder: (context) {
+                                              final l10n = AppLocalizations.of(context)!;
+                                              final countryCode = ref.watch(phoneCountryCodeProvider);
+                                              final allProps = ref.watch(propertiesStreamProvider).valueOrNull ?? [];
+                                              final prop = allProps.firstWhere(
+                                                (p) => p.id == reservation.propertyId || p.name == reservation.propertyName,
+                                                orElse: () => allProps.isEmpty ? allProps.first : allProps.first,
+                                              );
+                                              final address = allProps.any((p) => p.id == reservation.propertyId || p.name == reservation.propertyName)
+                                                  ? '${prop.address}, ${prop.city}'
+                                                  : '';
+                                              return FilledButton.icon(
+                                                style: FilledButton.styleFrom(
+                                                  backgroundColor: const Color(0xFF25D366),
+                                                  foregroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                                ),
+                                                icon: const Icon(Icons.chat_rounded, size: 18),
+                                                label: Text(l10n.messageCleanerOnWhatsApp, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                onPressed: () async {
+                                                  final cleaner = cleaners.firstWhere((c) => c.id == mainCleanerId);
+                                                  final rawPhone = cleaner.phone ?? '';
+                                                  if (rawPhone.isNotEmpty) {
+                                                    // Sanitize: strip non-digits
+                                                    final digitsOnly = rawPhone.replaceAll(RegExp(r'[^\d]'), '');
+                                                    // Use cleaner's specific country code if available, otherwise fallback to company default
+                                                    final userCC = cleaner.phoneCountryCode?.replaceAll('+', '') ?? '';
+                                                    final effectiveCC = userCC.isNotEmpty ? userCC : countryCode.replaceAll('+', '');
+                                                    final fullPhone = '$effectiveCC$digitsOnly';
+                                                    
+                                                    // Remove duplicate address if propertyName already includes it
+                                                    final propertyName = reservation.propertyName;
+                                                    String finalAddress = address;
+                                                    if (address.isNotEmpty && propertyName.toLowerCase().contains(address.toLowerCase().split(',').first.trim())) {
+                                                       // If it's a legacy title containing the address, just use city part if available
+                                                       final parts = address.split(',');
+                                                       if (parts.length > 2) {
+                                                         finalAddress = parts.sublist(2).join(',').trim();
+                                                       } else if (parts.length > 1) {
+                                                          finalAddress = parts.sublist(1).join(',').trim();
+                                                       } else {
+                                                          finalAddress = '';
+                                                       }
+                                                    }
+
+                                                    final message = l10n.whatsAppCleaningMessage(
+                                                      cleaner.username,
+                                                      defaultDateFormatter.format(reservation.date),
+                                                      propertyName,
+                                                      finalAddress,
+                                                    );
+                                                    final whatsappUrl = Uri.parse(
+                                                        'https://wa.me/$fullPhone?text=${Uri.encodeComponent(message)}');
+                                                    if (await canLaunchUrl(whatsappUrl)) {
+                                                      await launchUrl(whatsappUrl, mode: LaunchMode.externalApplication);
+                                                    } else {
+                                                      if (context.mounted) {
+                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                            SnackBar(content: Text(l10n.couldNotOpenWhatsApp)));
+                                                      }
+                                                    }
                                                   } else {
                                                     if (context.mounted) {
                                                       ScaffoldMessenger.of(context).showSnackBar(
-                                                          const SnackBar(content: Text('Could not open WhatsApp')));
+                                                          SnackBar(content: Text(l10n.noPhoneOnFileError)));
                                                     }
                                                   }
-                                                } else {
-                                                  if (context.mounted) {
-                                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                                                        content: Text('This cleaner has no phone number on file.')));
-                                                  }
-                                                }
-                                              },
-                                            ),
+                                                },
+                                              );
+                                            }),
                                           ),
                                         ),
                                       const SizedBox(height: 16),
                                       DropdownButtonFormField<String>(
                                         value: selectedInspectorId,
                                         decoration: InputDecoration(
-                                          labelText: 'Select Inspector (Optional)',
+                                          labelText: l10n.selectInspectorLabel,
                                           prefixIcon: const Icon(Icons.fact_check_rounded),
                                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                           filled: true,
@@ -951,17 +1186,41 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                                         controller: observationController,
                                         maxLines: 2,
                                         decoration: InputDecoration(
-                                          labelText: 'Manager observations for cleaner',
+                                          labelText: l10n.managerObservationsLabel,
                                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                           prefixIcon: const Icon(Icons.edit_note_rounded),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      TextField(
+                                        controller: propertyCleaningFeeController,
+                                        keyboardType: TextInputType.number,
+                                        onChanged: (val) {
+                                          if (!isGoldOrHigher) {
+                                             final doubleValue = double.tryParse(val) ?? 0.0;
+                                             if (assignedCleaners.isNotEmpty) {
+                                               setState(() {
+                                                 assignedCleaners[0] = CleanerWithFee(
+                                                   id: assignedCleaners[0].id,
+                                                   name: assignedCleaners[0].name,
+                                                   fee: (doubleValue * 0.7).floorToDouble(),
+                                                 );
+                                               });
+                                             }
+                                          }
+                                        },
+                                        decoration: InputDecoration(
+                                          labelText: l10n.propertyCleaningFeeLabel,
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                          prefixIcon: const Icon(Icons.business_center_rounded),
                                         ),
                                       ),
                                       if (property != null && property.cleaningInstructions.isNotEmpty) ...[
                                         const SizedBox(height: 24),
                                         const Divider(),
                                         const SizedBox(height: 8),
-                                        const Text('Property Instructions',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                        Text(l10n.propertyInstructionsLabel,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                         const SizedBox(height: 8),
                                         Container(
                                           padding: const EdgeInsets.all(12),
@@ -996,11 +1255,11 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.stretch,
                                       children: [
-                                        if (existingAssignment!.incidents.isNotEmpty) ...[
-                                          const Text('Cleaner Reported Incidents',
-                                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                                        if (existingAssignment.incidents.isNotEmpty) ...[
+                                          Text(l10n.cleanerIncidentsLabel,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
                                           const SizedBox(height: 8),
-                                          ...existingAssignment!.incidents.map((incident) => Container(
+                                          ...existingAssignment.incidents.map((incident) => Container(
                                                 margin: const EdgeInsets.only(bottom: 12),
                                                 padding: const EdgeInsets.all(12),
                                                 decoration: BoxDecoration(
@@ -1030,12 +1289,12 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                                                 ),
                                               )),
                                         ],
-                                        if (existingAssignment!.findings.isNotEmpty) ...[
+                                        if (existingAssignment.findings.isNotEmpty) ...[
                                           const SizedBox(height: 16),
-                                          const Text('Inspector Findings',
-                                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                                          Text(l10n.inspectorFindingsLabel,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
                                           const SizedBox(height: 8),
-                                          ...existingAssignment!.findings.map((finding) => Container(
+                                          ...existingAssignment.findings.map((finding) => Container(
                                                 margin: const EdgeInsets.only(bottom: 12),
                                                 padding: const EdgeInsets.all(12),
                                                 decoration: BoxDecoration(
@@ -1065,11 +1324,11 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                                                 ),
                                               )),
                                         ],
-                                        if (existingAssignment!.incidents.isEmpty && existingAssignment!.findings.isEmpty)
-                                          const Center(
+                                        if (existingAssignment.incidents.isEmpty && existingAssignment.findings.isEmpty)
+                                          Center(
                                               child: Padding(
-                                                  padding: EdgeInsets.all(32),
-                                                  child: Text('No operational feedback yet.'))),
+                                                  padding: const EdgeInsets.all(32),
+                                          child: Text(l10n.noFeedbackLabel))),
                                       ],
                                     ),
                                   ),
@@ -1079,35 +1338,36 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 12,
                         children: [
-                          if (existingAssignment != null) ...[
+                          if (existingAssignment != null && (ref.read(authControllerProvider)?.role == AppRole.superAdmin || ref.read(authControllerProvider)?.role == AppRole.administrator))
                             TextButton.icon(
                               onPressed: () async {
                                 await cleaningRepository.deleteAssignment(dateStr, reservation.id, reservation.companyId);
                                 if (context.mounted) Navigator.pop(context);
                               },
                               icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                              label: const Text('Remove', style: TextStyle(color: Colors.red)),
+                              label: Text(l10n.cancelCleaningAction, style: const TextStyle(color: Colors.red)),
                             ),
-                            const Spacer(),
-                          ],
-                          if (existingAssignment == null) const Spacer(),
                           TextButton(
                             onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
+                            child: Text(l10n.cancelAction),
                           ),
-                          const SizedBox(width: 12),
                           ElevatedButton(
                             onPressed: () async {
-                              if (selectedCleanerId == null) {
+                              if (assignedCleaners.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Please select a cleaner')));
+                                    SnackBar(content: Text(l10n.pleaseSelectCleanerError)));
                                 return;
                               }
-                              final cleanerName =
-                                  cleaners.firstWhere((c) => c.id == selectedCleanerId).username;
+                              if (mainCleanerId == null) {
+                                mainCleanerId = assignedCleaners.first.id;
+                              }
+
                               final inspectorName = selectedInspectorId != null
                                   ? inspectors.firstWhere((i) => i.id == selectedInspectorId).username
                                   : null;
@@ -1117,16 +1377,17 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                                 companyId: reservation.companyId,
                                 reservationId: reservation.id,
                                 propertyId: reservation.propertyName,
-                                cleanerId: selectedCleanerId!,
-                                cleanerName: cleanerName,
+                                cleaners: assignedCleaners,
+                                mainCleanerId: mainCleanerId!,
                                 inspectorId: selectedInspectorId,
                                 inspectorName: inspectorName,
                                 date: dateStr,
-                                assignedAt: existingAssignment?.assignedAt ?? DateTime.now().toIso8601String(),
+                                assignedAt: existingAssignment?.assignedAt ?? ref.read(currentServerTimeProvider).toIso8601String(),
                                 observation: observationController.text.trim(),
                                 status: existingAssignment?.status ?? CleaningStatus.assigned,
                                 startTime: existingAssignment?.startTime ?? '',
                                 endTime: existingAssignment?.endTime ?? '',
+                                propertyCleaningFee: double.tryParse(propertyCleaningFeeController.text) ?? 0.0,
                                 incidents: existingAssignment?.incidents ?? [],
                                 findings: existingAssignment?.findings ?? [],
                               );
@@ -1141,7 +1402,7 @@ class _CalendarDashboardState extends ConsumerState<CalendarDashboard> {
                               elevation: 0,
                             ),
                             child: Text(
-                              existingAssignment == null ? 'Create Assignment' : 'Save Changes',
+                              existingAssignment == null ? l10n.createAssignmentAction : l10n.saveChanges,
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),

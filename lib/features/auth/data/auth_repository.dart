@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:firebase_database/firebase_database.dart';
@@ -13,7 +16,19 @@ class AuthController extends _$AuthController {
     return null; // Not logged in initially
   }
 
+  /// macOS REST API key (bypasses Keychain on unsigned builds).
+  static const _macosApiKey = 'AIzaSyB4UNHKffFOTtxZviWzaO9rO8QKP1lFDSs';
+
   Future<void> login(String email, String password) async {
+    // On macOS the native Firebase Auth SDK always throws keychain-error because
+    // the app requires a paid Apple Distribution certificate to access the Keychain.
+    // Fix: use the Firebase Auth REST API directly — it's just HTTPS, no Keychain needed.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
+      await _loginViaMacOSRestApi(email.trim(), password);
+      return;
+    }
+
+    // All other platforms (Android, iOS, Windows) use the normal SDK path.
     try {
       final credential = await auth.FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email.trim(),
@@ -21,18 +36,6 @@ class AuthController extends _$AuthController {
       );
       await _loadUserFromDatabase(credential.user!.uid, email);
     } on auth.FirebaseAuthException catch (e) {
-      // On unsigned macOS/Windows apps, Firebase Auth throws 'keychain-error'
-      // AFTER a successful sign-in, when it tries to persist the token to the
-      // native Keychain (which requires a paid Developer certificate).
-      // The user IS authenticated in memory at this point — we recover by
-      // reading FirebaseAuth.instance.currentUser directly.
-      if (e.code == 'keychain-error') {
-        final currentUser = auth.FirebaseAuth.instance.currentUser;
-        if (currentUser != null) {
-          await _loadUserFromDatabase(currentUser.uid, email);
-          return;
-        }
-      }
       if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
         throw Exception('Invalid email or password.');
       }
@@ -42,15 +45,52 @@ class AuthController extends _$AuthController {
     }
   }
 
+  /// Authenticates using the Firebase Auth REST API, bypassing the macOS Keychain entirely.
+  Future<void> _loginViaMacOSRestApi(String email, String password) async {
+    const url =
+        'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$_macosApiKey';
+    
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'password': password,
+          'returnSecureToken': true,
+        }),
+      );
+
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode != 200) {
+        final errCode = (body['error']?['message'] as String? ?? '').toLowerCase();
+        if (errCode.contains('invalid') || errCode.contains('password') || errCode.contains('email')) {
+          throw Exception('Invalid email or password.');
+        }
+        throw Exception('Authentication failed: ${body['error']?['message']}');
+      }
+
+      final uid = body['localId'] as String;
+      await _loadUserFromDatabase(uid, email);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+
   /// Fetches user record from Realtime Database and sets the app state.
   Future<void> _loadUserFromDatabase(String uid, String fallbackEmail) async {
     final snapshot = await FirebaseDatabase.instance.ref('users/$uid').get();
+    
     if (snapshot.exists) {
       final data = snapshot.value as Map<dynamic, dynamic>;
-
+      
       // Prevent login if user is soft-deleted
       if (data['isActive'] == false) {
-        await auth.FirebaseAuth.instance.signOut();
+        try {
+          await auth.FirebaseAuth.instance.signOut();
+        } catch (_) {}
         throw Exception('This account has been deactivated.');
       }
 
@@ -75,26 +115,35 @@ class AuthController extends _$AuthController {
         phone: data['phone']?.toString(),
         address: data['address']?.toString(),
         emergencyContact: data['emergencyContact']?.toString(),
-        payRate: data['payRate'] != null ? double.tryParse(data['payRate'].toString()) : null,
         companyIds: companyIds,
         activeCompanyId: data['activeCompanyId']?.toString() ?? (companyIds.isNotEmpty ? companyIds.first : null),
+        language: data['language']?.toString(),
       );
     } else {
-      await auth.FirebaseAuth.instance.signOut();
+      try {
+        await auth.FirebaseAuth.instance.signOut();
+      } catch (_) {}
       throw Exception('User data not found in database.');
     }
   }
 
   Future<void> logout() async {
-    await auth.FirebaseAuth.instance.signOut();
+    try {
+      await auth.FirebaseAuth.instance.signOut();
+    } catch (_) {
+      // Ignore keychain failures on logout
+    }
     state = null;
   }
+
+
 
   /// Update editable profile fields in the Realtime Database and refresh local state.
   Future<void> updateProfile({
     String? phone,
     String? address,
     String? emergencyContact,
+    String? language,
   }) async {
     final user = state;
     if (user == null) return;
@@ -103,6 +152,7 @@ class AuthController extends _$AuthController {
       'phone': phone,
       'address': address,
       'emergencyContact': emergencyContact,
+      if (language != null) 'language': language,
     });
 
     state = User(
@@ -111,10 +161,10 @@ class AuthController extends _$AuthController {
       role: user.role,
       isActive: user.isActive,
       email: user.email,
-      payRate: user.payRate,
       phone: phone,
       address: address,
       emergencyContact: emergencyContact,
+      language: language ?? user.language,
     );
   }
 
@@ -140,22 +190,30 @@ class AuthController extends _$AuthController {
     state = user.copyWith(activeCompanyId: companyId);
   }
 
-  AppRole _roleFromString(String roleStr) {
-    switch (roleStr) {
-      case 'Super Admin':
+  AppRole _roleFromString(String? roleStr) {
+    if (roleStr == null) return AppRole.cleaner;
+    final normalized = roleStr.toLowerCase().trim();
+    
+    switch (normalized) {
+      case 'super admin':
+      case 'superadmin':
+      case 'superadministrator':
         return AppRole.superAdmin;
-      case 'Administrator':
+      case 'administrator':
+      case 'admin':
         return AppRole.administrator;
-      case 'Manager':
+      case 'manager':
         return AppRole.manager;
-      case 'Cleaner':
+      case 'cleaner':
         return AppRole.cleaner;
-      case 'Inspector':
+      case 'inspector':
         return AppRole.inspector;
-      case 'Property Owner':
+      case 'property owner':
+      case 'owner':
         return AppRole.owner;
       default:
         return AppRole.cleaner;
     }
   }
+
 }

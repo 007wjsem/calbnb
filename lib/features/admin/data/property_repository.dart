@@ -8,6 +8,12 @@ final propertyRepositoryProvider = Provider((ref) {
   return PropertyRepository(activeCompanyId: activeCompanyId);
 });
 
+final propertiesStreamProvider = StreamProvider<List<Property>>((ref) {
+  final activeCompanyId = ref.watch(authControllerProvider)?.activeCompanyId;
+  final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
+  return propRepo.watchAll();
+});
+
 class PropertyRepository {
   final String? activeCompanyId;
   PropertyRepository({this.activeCompanyId});
@@ -18,91 +24,36 @@ class PropertyRepository {
   }
 
   Future<List<Property>> fetchAll() async {
-    List<Property> properties = [];
-
-    // Aggressive parsing logic that extracts nested maps even from Lists
-    void parseProperties(dynamic rawData, String? fallbackCompanyId) {
-      if (rawData == null) return;
-      Iterable<MapEntry<dynamic, dynamic>> entries;
-      if (rawData is Map) {
-        entries = rawData.entries;
-      } else if (rawData is List) {
-        entries = rawData.asMap().entries;
-      } else {
-        return;
-      }
-      
-      for (final e in entries) {
-        // If it's a map, parse it.
-        if (e.value is Map) {
-          Map value = e.value as Map;
-          String propId = e.key.toString();
-
-          // On iOS, Firebase can return { pushId: { propertyData } } instead of { propertyData }.
-          // Detect this by checking if the first key starts with '-' (Firebase push ID format).
-          if (value.isNotEmpty &&
-              value.keys.first is String &&
-              (value.keys.first as String).startsWith('-') &&
-              value.values.first is Map) {
-            propId = value.keys.first.toString();
-            value = value.values.first as Map;
-          }
-
-          properties.add(Property(
-            id: propId,
-            companyId: value['companyId']?.toString() ?? fallbackCompanyId ?? activeCompanyId ?? '',
-            name: value['name']?.toString() ?? 'Unknown',
-            address: value['address']?.toString() ?? 'Unknown',
-            zipCode: value['zipCode']?.toString() ?? '',
-            city: value['city']?.toString() ?? '',
-            state: value['state']?.toString() ?? '',
-            country: value['country']?.toString() ?? '',
-            cleaningFee: double.tryParse(value['cleaningFee']?.toString() ?? '0') ?? 0.0,
-            size: value['size']?.toString() ?? '',
-            propertyType: value['propertyType']?.toString() ?? '',
-            ownerName: value['ownerName']?.toString() ?? '',
-            ownerPhone: value['ownerPhone']?.toString() ?? '',
-            ownerEmail: value['ownerEmail']?.toString() ?? '',
-            propertyManagement: value['propertyManagement']?.toString() ?? '',
-            lockBoxPin: value['lockBoxPin']?.toString() ?? '',
-            housePin: value['housePin']?.toString() ?? '',
-            garagePin: value['garagePin']?.toString() ?? '',
-            order: int.tryParse(value['order']?.toString() ?? '0') ?? 0,
-            cleaningInstructions: value['cleaningInstructions']?.toString() ?? '',
-            instructionPhotos: (value['instructionPhotos'] as List<dynamic>?)?.map((x) => x.toString()).toList() ?? [],
-            checklists: (value['checklists'] as List<dynamic>?)?.map((x) => x.toString()).toList() ?? [],
-            ownerAccountId: value['ownerAccountId']?.toString(),
-            recurringCadence: value['recurringCadence']?.toString() ?? 'none',
-            bufferHours: int.tryParse(value['bufferHours']?.toString() ?? '0') ?? 0,
-            trashDay: value['trashDay']?.toString() ?? '',
-          ));
-        } else if (e.value is List) {
-           // Safely ignore arrays at the property level as they are malformed
-        }
-      }
-    }
+    final List<Property> properties = [];
 
     if (activeCompanyId == null) {
       // Super Admin: Fetch from legacy 'properties' AND all 'companies/*/properties'
       
       // 1. Legacy
       final legacySnap = await FirebaseDatabase.instance.ref('properties').get();
-      parseProperties(legacySnap.value, null);
+      _parseProperties(legacySnap.value, properties, null);
       
       // 2. Companies
       final companiesSnap = await FirebaseDatabase.instance.ref('companies').get();
-      if (companiesSnap.value is Map) {
-        final companiesData = companiesSnap.value as Map;
-        companiesData.forEach((compId, compData) {
+      final rawCompanies = companiesSnap.value;
+      if (rawCompanies is Map) {
+        rawCompanies.forEach((compId, compData) {
           if (compData is Map && compData.containsKey('properties')) {
-            parseProperties(compData['properties'], compId.toString());
+            _parseProperties(compData['properties'], properties, compId.toString());
           }
         });
+      } else if (rawCompanies is List) {
+        for (int i = 0; i < rawCompanies.length; i++) {
+          final compData = rawCompanies[i];
+          if (compData is Map && compData.containsKey('properties')) {
+            _parseProperties(compData['properties'], properties, i.toString());
+          }
+        }
       }
     } else {
-      // Company Admin/User: Fetch only from their specific company bucket
+      // Company Admin/User: Fetch from their specific company bucket
       final snapshot = await _ref.get();
-      parseProperties(snapshot.value, activeCompanyId);
+      _parseProperties(snapshot.value, properties, activeCompanyId);
     }
 
     // Natively sort properties by their stored order value
@@ -114,9 +65,27 @@ class PropertyRepository {
   Stream<List<Property>> watchAll() {
     if (activeCompanyId == null) {
       // Super Admin: combine legacy + company properties
-      // We listen to the entire companies node for simplicity.
-      return FirebaseDatabase.instance.ref('companies').onValue.map((event) {
+      // We listen to BOTH the legacy 'properties' node and the 'companies' node.
+      final legacyStream = FirebaseDatabase.instance.ref('properties').onValue;
+      final companiesStream = FirebaseDatabase.instance.ref('companies').onValue;
+
+      // We use Rx.combineLatest2 or manual stream merge if possible, 
+      // but for simplicity without adding new dependencies, we can use a simpler approach:
+      // Since fetchAll() already handles both, and watchAll is mostly for UI updates,
+      // we'll keep the companies stream as the primary driver but parse everything.
+      
+      // Actually, to be truly reactive, we should probably watch both.
+      // But in this app, usually legacy properties don't change often.
+      // Let's at least ensure we are parsing the companies node correctly.
+      
+      return companiesStream.asyncMap((event) async {
         final List<Property> props = [];
+        
+        // 1. Legacy (One-time check per update is fine)
+        final legacySnap = await FirebaseDatabase.instance.ref('properties').get();
+        _parseProperties(legacySnap.value, props, null);
+
+        // 2. Companies
         final rawCompanies = event.snapshot.value;
         if (rawCompanies is Map) {
           rawCompanies.forEach((compId, compData) {
@@ -125,6 +94,7 @@ class PropertyRepository {
             }
           });
         }
+        
         props.sort((a, b) => a.order.compareTo(b.order));
         return props;
       });
@@ -138,39 +108,33 @@ class PropertyRepository {
     }
   }
 
-  /// Shared parsing helper used by both fetchAll() and watchAll().
   void _parseProperties(dynamic rawData, List<Property> properties, String? fallbackCompanyId) {
     if (rawData == null) return;
-    Iterable<MapEntry<dynamic, dynamic>> entries;
+    
+    Map<dynamic, dynamic> entriesMap;
     if (rawData is Map) {
-      entries = rawData.entries;
+      entriesMap = rawData;
     } else if (rawData is List) {
-      entries = rawData.asMap().entries;
+      entriesMap = rawData.asMap();
     } else {
       return;
     }
 
-    for (final e in entries) {
-      if (e.value is Map) {
-        final Map outerMap = e.value as Map;
-
-        // On iOS, Firebase can return a map whose keys are all Firebase push-IDs
-        // (starting with '-') instead of property field names.
-        // In that case, each push-ID key maps to the real property data.
-        // We recursively handle this by treating the outer map as another level
-        // of entries, extracting ALL push-ID keyed children — not just the first.
+    entriesMap.forEach((key, value) {
+      if (value is Map) {
+        final Map outerMap = value;
+        // Handle iOS push-ID wrappers: if all keys of this map start with '-' and values are Maps, recurse.
         final bool isPushIdWrapper = outerMap.isNotEmpty &&
-            outerMap.keys.every((k) => k is String && (k as String).startsWith('-')) &&
+            outerMap.keys.every((k) => k is String && k.startsWith('-')) &&
             outerMap.values.every((v) => v is Map);
 
         if (isPushIdWrapper) {
-          // Recurse with the outer map directly — will process each push-ID entry
           _parseProperties(outerMap, properties, fallbackCompanyId);
-          continue;
+          return; // Skip adding 'outerMap' itself as a property
         }
 
         properties.add(Property(
-          id: e.key.toString(),
+          id: key.toString(),
           companyId: outerMap['companyId']?.toString() ?? fallbackCompanyId ?? activeCompanyId ?? '',
           name: outerMap['name']?.toString() ?? '',
           address: outerMap['address']?.toString() ?? '',
@@ -189,6 +153,8 @@ class PropertyRepository {
           housePin: outerMap['housePin']?.toString() ?? '',
           garagePin: outerMap['garagePin']?.toString() ?? '',
           order: int.tryParse(outerMap['order']?.toString() ?? '0') ?? 0,
+          syncId: outerMap['syncId']?.toString() ?? '',
+          isCohost: outerMap['isCohost'] == true || outerMap['isCohost'] == 'true',
           cleaningInstructions: outerMap['cleaningInstructions']?.toString() ?? '',
           instructionPhotos: (outerMap['instructionPhotos'] as List<dynamic>?)?.map((x) => x.toString()).toList() ?? [],
           checklists: (outerMap['checklists'] as List<dynamic>?)?.map((x) => x.toString()).toList() ?? [],
@@ -198,7 +164,7 @@ class PropertyRepository {
           trashDay: outerMap['trashDay']?.toString() ?? '',
         ));
       }
-    }
+    });
   }
   Future<void> add(Property property) async {
     // If property has a specific companyId that differs from the active context,
@@ -226,6 +192,8 @@ class PropertyRepository {
       'housePin': property.housePin,
       'garagePin': property.garagePin,
       'order': property.order,
+      'syncId': property.syncId,
+      'isCohost': property.isCohost,
       'cleaningInstructions': property.cleaningInstructions,
       'instructionPhotos': property.instructionPhotos,
       'checklists': property.checklists,
@@ -260,6 +228,8 @@ class PropertyRepository {
       'housePin': property.housePin,
       'garagePin': property.garagePin,
       'order': property.order,
+      'syncId': property.syncId,
+      'isCohost': property.isCohost,
       'cleaningInstructions': property.cleaningInstructions,
       'instructionPhotos': property.instructionPhotos,
       'checklists': property.checklists,

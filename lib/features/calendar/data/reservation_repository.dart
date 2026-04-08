@@ -2,6 +2,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 import '../domain/reservation.dart';
+import '../../admin/domain/property.dart';
 import '../../admin/data/property_repository.dart';
 
 import '../../auth/data/auth_repository.dart';
@@ -18,7 +19,9 @@ class DailyReservations extends _$DailyReservations {
         ? FirebaseDatabase.instance.ref('calendar')
         : FirebaseDatabase.instance.ref('calendar/$activeCompanyId');
 
-    final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
+    // This guarantees the calendar dashboard updates reactively when properties are created/edited/deleted.
+    // It also prevents iOS cache staleness from breaking the initial load.
+    final allProperties = await ref.watch(propertiesStreamProvider.future);
 
     await for (final event in ref_calendar.onValue) {
       try {
@@ -27,52 +30,85 @@ class DailyReservations extends _$DailyReservations {
           yield [];
           continue;
         }
-
-        // Fetch properties on every broadcast update to ensure we have the most 
-        // up-to-date name/address mappings.
-        final allProperties = await propRepo.fetchAll();
         final targetDateStr = DateFormat('yyyy-MM-dd').format(date);
         final List<Reservation> matchingReservations = [];
 
-        void processItem(String key, dynamic value) {
+        void processItem(String key, dynamic value, String itemCompanyId) {
           if (value is Map) {
+            if (!value.containsKey('guest') && !value.containsKey('checkIn') && !value.containsKey('checkOut')) {
+              value.forEach((subKey, subValue) {
+                if (subValue is Map) {
+                  final mutableSubValue = Map<dynamic, dynamic>.from(subValue);
+                  mutableSubValue['propertyId'] ??= key;
+                  processItem('${key}_$subKey', mutableSubValue, itemCompanyId);
+                }
+              });
+              return;
+            }
+
             final guest = value['guest']?.toString();
             final checkout = value['checkOut']?.toString();
             final checkin = value['checkIn']?.toString();
             
-            // Extract safely without rigid type casting in case Make.com sends integers
             final propertyIdStr = value['propertyId']?.toString();
-            
+            String? resolvedPropertyId;
             String resolvedPropertyName = 'Missing Name';
             String resolvedPropertyAddress = 'Missing Address';
-            String resolvedCompanyId = activeCompanyId ?? '';
+            String resolvedCompanyId = itemCompanyId;
             
             if (propertyIdStr != null && propertyIdStr.isNotEmpty) {
-              try {
-                // 1. Try finding by rigid Document ID
-                final matchedProp = allProperties.firstWhere((p) => p.id == propertyIdStr);
+              Property? matchedProp;
+              // Priority 1: Match by syncId (Slug) - Global or Company
+              final bySyncId = allProperties.where((p) => p.syncId == propertyIdStr).toList();
+              if (bySyncId.isNotEmpty) {
+                matchedProp = bySyncId.firstWhere((p) => p.companyId == itemCompanyId, orElse: () => bySyncId.first);
+              }
+
+              // Priority 2: Try finding within the SAME company by ID or Name
+              if (matchedProp == null) {
+                final sameCompanyProps = allProperties.where((p) => p.companyId == itemCompanyId).toList();
+                matchedProp = sameCompanyProps.where((p) => p.id == propertyIdStr).firstOrNull;
+                matchedProp ??= sameCompanyProps.where((p) => p.name == propertyIdStr).firstOrNull;
+                
+                if (matchedProp == null) {
+                  final searchKey = propertyIdStr.toLowerCase().trim();
+                  if (searchKey.length > 2) {
+                    matchedProp = sameCompanyProps.where((p) {
+                      final pName = p.name.toLowerCase().trim();
+                      return pName.length > 2 && (pName.contains(searchKey) || searchKey.contains(pName));
+                    }).firstOrNull;
+                  }
+                }
+              }
+
+              // Priority 3: Fallback to Global search (ID, Name, or Order)
+              if (matchedProp == null) {
+                matchedProp = allProperties.where((p) => p.id == propertyIdStr).firstOrNull;
+                matchedProp ??= allProperties.where((p) => p.name == propertyIdStr).firstOrNull;
+                
+                if (matchedProp == null) {
+                  final searchKey = propertyIdStr.toLowerCase().trim();
+                  if (searchKey.length > 2) {
+                    matchedProp = allProperties.where((p) {
+                      final pName = p.name.toLowerCase().trim();
+                      return pName.length > 2 && (pName.contains(searchKey) || searchKey.contains(pName));
+                    }).firstOrNull;
+                  }
+                }
+                
+                if (matchedProp == null) {
+                  final targetOrder = int.tryParse(propertyIdStr);
+                  if (targetOrder != null) {
+                    matchedProp = allProperties.where((p) => p.order == targetOrder).firstOrNull;
+                  }
+                }
+              }
+
+              if (matchedProp != null) {
+                resolvedPropertyId = matchedProp.id;
                 resolvedPropertyName = matchedProp.name;
                 resolvedPropertyAddress = matchedProp.address;
                 resolvedCompanyId = matchedProp.companyId;
-              } catch (_) {
-                try {
-                  // 2. Fallback: Try finding by Property Name
-                  final matchedPropByName = allProperties.firstWhere((p) => p.name == propertyIdStr);
-                  resolvedPropertyName = matchedPropByName.name;
-                  resolvedPropertyAddress = matchedPropByName.address;
-                  resolvedCompanyId = matchedPropByName.companyId;
-                } catch (_) { 
-                  // 3. Fallback: Try finding by Legacy Order index
-                  final int? targetOrder = int.tryParse(propertyIdStr);
-                  if (targetOrder != null) {
-                    try {
-                      final matchedPropByOrder = allProperties.firstWhere((p) => p.order == targetOrder);
-                      resolvedPropertyName = matchedPropByOrder.name;
-                      resolvedPropertyAddress = matchedPropByOrder.address;
-                      resolvedCompanyId = matchedPropByOrder.companyId;
-                    } catch (_) {}
-                  }
-                }
               }
             }
 
@@ -90,6 +126,7 @@ class DailyReservations extends _$DailyReservations {
                         companyId: resolvedCompanyId,
                         guestName: guest,
                         propertyName: displayPropertyString,
+                        propertyId: resolvedPropertyId,
                         date: date,
                         type: ReservationEventType.checkOut,
                       )
@@ -104,6 +141,7 @@ class DailyReservations extends _$DailyReservations {
                         companyId: resolvedCompanyId,
                         guestName: guest,
                         propertyName: displayPropertyString,
+                        propertyId: resolvedPropertyId,
                         date: date,
                         type: ReservationEventType.checkIn,
                       )
@@ -114,32 +152,31 @@ class DailyReservations extends _$DailyReservations {
           }
         }
 
-        void processReservationsData(Object? data) {
+        void processReservationsData(Object? data, String itemCompanyId) {
           if (data is List) {
             for (int i = 0; i < data.length; i++) {
-              if (data[i] != null) processItem(i.toString(), data[i]);
+              if (data[i] != null) processItem(i.toString(), data[i], itemCompanyId);
             }
           } else if (data is Map) {
             data.forEach((key, value) {
-              processItem(key.toString(), value);
+              processItem(key.toString(), value, itemCompanyId);
             });
           }
         }
 
         if (activeCompanyId == null) {
-          // If Super Admin, rawData is a map of ALL companies under `calendar`.
           if (rawData is Map) {
-            for (final companyData in rawData.values) {
-              processReservationsData(companyData);
-            }
+            rawData.forEach((compId, companyData) {
+              processReservationsData(companyData, compId.toString());
+            });
           } else if (rawData is List) {
-             for (final companyData in rawData) {
-               if (companyData != null) processReservationsData(companyData);
+             for (int i = 0; i < rawData.length; i++) {
+               final companyData = rawData[i];
+               if (companyData != null) processReservationsData(companyData, i.toString());
              }
           }
         } else {
-          // If Admin, rawData is just the reservations array/map for their specific company.
-          processReservationsData(rawData);
+          processReservationsData(rawData, activeCompanyId);
         }
 
         yield matchingReservations;
@@ -161,7 +198,7 @@ class DateRangeReservations extends _$DateRangeReservations {
         ? FirebaseDatabase.instance.ref('calendar')
         : FirebaseDatabase.instance.ref('calendar/$activeCompanyId');
 
-    final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
+    final allProperties = await ref.watch(propertiesStreamProvider.future);
 
     await for (final event in ref_calendar.onValue) {
       try {
@@ -170,8 +207,6 @@ class DateRangeReservations extends _$DateRangeReservations {
           yield {};
           continue;
         }
-
-        final allProperties = await propRepo.fetchAll();
         final Map<DateTime, List<Reservation>> dateMap = {};
 
         // Pre-calculate date strings for the requested range
@@ -183,40 +218,80 @@ class DateRangeReservations extends _$DateRangeReservations {
           dateMap[DateTime(d.year, d.month, d.day)] = [];
         }
 
-        void processItem(String key, dynamic value) {
+        void processItem(String key, dynamic value, String itemCompanyId) {
           if (value is Map) {
+            if (!value.containsKey('guest') && !value.containsKey('checkIn') && !value.containsKey('checkOut')) {
+              value.forEach((subKey, subValue) {
+                if (subValue is Map) {
+                  final mutableSubValue = Map<dynamic, dynamic>.from(subValue);
+                  mutableSubValue['propertyId'] ??= key;
+                  processItem('${key}_$subKey', mutableSubValue, itemCompanyId);
+                }
+              });
+              return;
+            }
+
             final guest = value['guest']?.toString();
             final checkout = value['checkOut']?.toString();
             final checkin = value['checkIn']?.toString();
             final propertyIdStr = value['propertyId']?.toString();
 
+            String? resolvedPropertyId;
             String resolvedPropertyName = 'Missing Name';
             String resolvedPropertyAddress = 'Missing Address';
-            String resolvedCompanyId = activeCompanyId ?? '';
+            String resolvedCompanyId = itemCompanyId;
 
             if (propertyIdStr != null && propertyIdStr.isNotEmpty) {
-              try {
-                final matchedProp = allProperties.firstWhere((p) => p.id == propertyIdStr);
+              Property? matchedProp;
+              // Priority 1: Match by syncId (Slug) - Global or Company
+              final bySyncId = allProperties.where((p) => p.syncId == propertyIdStr).toList();
+              if (bySyncId.isNotEmpty) {
+                matchedProp = bySyncId.firstWhere((p) => p.companyId == itemCompanyId, orElse: () => bySyncId.first);
+              }
+
+              // Priority 2: Try finding within the SAME company by ID or Name
+              if (matchedProp == null) {
+                final sameCompanyProps = allProperties.where((p) => p.companyId == itemCompanyId).toList();
+                matchedProp = sameCompanyProps.where((p) => p.id == propertyIdStr).firstOrNull;
+                matchedProp ??= sameCompanyProps.where((p) => p.name == propertyIdStr).firstOrNull;
+                
+                if (matchedProp == null) {
+                  final searchKey = propertyIdStr.toLowerCase().trim();
+                  if (searchKey.length > 2) {
+                    matchedProp = sameCompanyProps.where((p) {
+                      final pName = p.name.toLowerCase().trim();
+                      return pName.length > 2 && (pName.contains(searchKey) || searchKey.contains(pName));
+                    }).firstOrNull;
+                  }
+                }
+              }
+
+              // Priority 3: Fallback to Global search (ID, Name, or Order)
+              if (matchedProp == null) {
+                matchedProp = allProperties.where((p) => p.id == propertyIdStr).firstOrNull;
+                matchedProp ??= allProperties.where((p) => p.name == propertyIdStr).firstOrNull;
+                if (matchedProp == null) {
+                  final searchKey = propertyIdStr.toLowerCase().trim();
+                  if (searchKey.length > 2) {
+                    matchedProp = allProperties.where((p) {
+                      final pName = p.name.toLowerCase().trim();
+                      return pName.length > 2 && (pName.contains(searchKey) || searchKey.contains(pName));
+                    }).firstOrNull;
+                  }
+                }
+                if (matchedProp == null) {
+                  final targetOrder = int.tryParse(propertyIdStr);
+                  if (targetOrder != null) {
+                    matchedProp = allProperties.where((p) => p.order == targetOrder).firstOrNull;
+                  }
+                }
+              }
+
+              if (matchedProp != null) {
+                resolvedPropertyId = matchedProp.id;
                 resolvedPropertyName = matchedProp.name;
                 resolvedPropertyAddress = matchedProp.address;
                 resolvedCompanyId = matchedProp.companyId;
-              } catch (_) {
-                try {
-                  final matchedPropByName = allProperties.firstWhere((p) => p.name == propertyIdStr);
-                  resolvedPropertyName = matchedPropByName.name;
-                  resolvedPropertyAddress = matchedPropByName.address;
-                  resolvedCompanyId = matchedPropByName.companyId;
-                } catch (_) {
-                  final int? targetOrder = int.tryParse(propertyIdStr);
-                  if (targetOrder != null) {
-                    try {
-                      final matchedPropByOrder = allProperties.firstWhere((p) => p.order == targetOrder);
-                      resolvedPropertyName = matchedPropByOrder.name;
-                      resolvedPropertyAddress = matchedPropByOrder.address;
-                      resolvedCompanyId = matchedPropByOrder.companyId;
-                    } catch (_) {}
-                  }
-                }
               }
             }
 
@@ -237,6 +312,7 @@ class DateRangeReservations extends _$DateRangeReservations {
                         companyId: resolvedCompanyId,
                         guestName: guest,
                         propertyName: displayPropertyString,
+                        propertyId: resolvedPropertyId,
                         date: mapKey,
                         type: ReservationEventType.checkOut,
                       ));
@@ -256,6 +332,7 @@ class DateRangeReservations extends _$DateRangeReservations {
                         companyId: resolvedCompanyId,
                         guestName: guest,
                         propertyName: displayPropertyString,
+                        propertyId: resolvedPropertyId,
                         date: mapKey,
                         type: ReservationEventType.checkIn,
                       ));
@@ -267,28 +344,29 @@ class DateRangeReservations extends _$DateRangeReservations {
           }
         }
 
-        void processReservationsData(Object? data) {
+        void processReservationsData(Object? data, String itemCompanyId) {
           if (data is List) {
             for (int i = 0; i < data.length; i++) {
-              if (data[i] != null) processItem(i.toString(), data[i]);
+              if (data[i] != null) processItem(i.toString(), data[i], itemCompanyId);
             }
           } else if (data is Map) {
-            data.forEach((key, value) => processItem(key.toString(), value));
+            data.forEach((key, value) => processItem(key.toString(), value, itemCompanyId));
           }
         }
 
         if (activeCompanyId == null) {
           if (rawData is Map) {
-            for (final companyData in rawData.values) {
-              processReservationsData(companyData);
-            }
+            rawData.forEach((compId, companyData) {
+              processReservationsData(companyData, compId.toString());
+            });
           } else if (rawData is List) {
-            for (final companyData in rawData) {
-              if (companyData != null) processReservationsData(companyData);
+            for (int i = 0; i < rawData.length; i++) {
+              final companyData = rawData[i];
+              if (companyData != null) processReservationsData(companyData, i.toString());
             }
           }
         } else {
-          processReservationsData(rawData);
+          processReservationsData(rawData, activeCompanyId);
         }
 
         yield dateMap;
@@ -310,7 +388,7 @@ class MonthlyTimeline extends _$MonthlyTimeline {
         ? FirebaseDatabase.instance.ref('calendar')
         : FirebaseDatabase.instance.ref('calendar/$activeCompanyId');
 
-    final propRepo = PropertyRepository(activeCompanyId: activeCompanyId);
+    final allProperties = await ref.watch(propertiesStreamProvider.future);
 
     await for (final event in ref_calendar.onValue) {
       try {
@@ -319,12 +397,21 @@ class MonthlyTimeline extends _$MonthlyTimeline {
           yield {};
           continue;
         }
-
-        final allProperties = await propRepo.fetchAll();
         final Map<String, List<TimelineReservation>> propertyMap = {};
 
-        void processItem(String key, dynamic value) {
+        void processItem(String key, dynamic value, String itemCompanyId) {
           if (value is Map) {
+            if (!value.containsKey('guest') && !value.containsKey('checkIn') && !value.containsKey('checkOut')) {
+              value.forEach((subKey, subValue) {
+                if (subValue is Map) {
+                  final mutableSubValue = Map<dynamic, dynamic>.from(subValue);
+                  mutableSubValue['propertyId'] ??= key;
+                  processItem('${key}_$subKey', mutableSubValue, itemCompanyId);
+                }
+              });
+              return;
+            }
+
             final guest = value['guest']?.toString();
             final checkout = value['checkOut']?.toString();
             final checkin = value['checkIn']?.toString();
@@ -333,34 +420,58 @@ class MonthlyTimeline extends _$MonthlyTimeline {
             String resolvedPropertyName = 'Missing Name';
             String resolvedPropertyAddress = 'Missing Address';
             String? resolvedPropertyId;
-            String resolvedCompanyId = activeCompanyId ?? '';
+            String resolvedCompanyId = itemCompanyId;
 
             if (propertyIdStr != null && propertyIdStr.isNotEmpty) {
-              try {
-                final matchedProp = allProperties.firstWhere((p) => p.id == propertyIdStr);
+              Property? matchedProp;
+              // Priority 1: Match by syncId (Slug) - Global or Company
+              final bySyncId = allProperties.where((p) => p.syncId == propertyIdStr).toList();
+              if (bySyncId.isNotEmpty) {
+                matchedProp = bySyncId.firstWhere((p) => p.companyId == itemCompanyId, orElse: () => bySyncId.first);
+              }
+
+              // Priority 2: Try finding within the SAME company by ID or Name
+              if (matchedProp == null) {
+                final sameCompanyProps = allProperties.where((p) => p.companyId == itemCompanyId).toList();
+                matchedProp = sameCompanyProps.where((p) => p.id == propertyIdStr).firstOrNull;
+                matchedProp ??= sameCompanyProps.where((p) => p.name == propertyIdStr).firstOrNull;
+                if (matchedProp == null) {
+                  final searchKey = propertyIdStr.toLowerCase().trim();
+                  if (searchKey.length > 2) {
+                    matchedProp = sameCompanyProps.where((p) {
+                      final pName = p.name.toLowerCase().trim();
+                      return pName.length > 2 && (pName.contains(searchKey) || searchKey.contains(pName));
+                    }).firstOrNull;
+                  }
+                }
+              }
+
+              // Priority 3: Fallback to Global search (ID, Name, or Order)
+              if (matchedProp == null) {
+                matchedProp = allProperties.where((p) => p.id == propertyIdStr).firstOrNull;
+                matchedProp ??= allProperties.where((p) => p.name == propertyIdStr).firstOrNull;
+                if (matchedProp == null) {
+                  final searchKey = propertyIdStr.toLowerCase().trim();
+                  if (searchKey.length > 2) {
+                    matchedProp = allProperties.where((p) {
+                      final pName = p.name.toLowerCase().trim();
+                      return pName.length > 2 && (pName.contains(searchKey) || searchKey.contains(pName));
+                    }).firstOrNull;
+                  }
+                }
+                if (matchedProp == null) {
+                  final targetOrder = int.tryParse(propertyIdStr);
+                  if (targetOrder != null) {
+                    matchedProp = allProperties.where((p) => p.order == targetOrder).firstOrNull;
+                  }
+                }
+              }
+
+              if (matchedProp != null) {
                 resolvedPropertyName = matchedProp.name;
                 resolvedPropertyAddress = matchedProp.address;
                 resolvedPropertyId = matchedProp.id;
                 resolvedCompanyId = matchedProp.companyId;
-              } catch (_) {
-                try {
-                  final matchedPropByName = allProperties.firstWhere((p) => p.name == propertyIdStr);
-                  resolvedPropertyName = matchedPropByName.name;
-                  resolvedPropertyAddress = matchedPropByName.address;
-                  resolvedPropertyId = matchedPropByName.id;
-                  resolvedCompanyId = matchedPropByName.companyId;
-                } catch (_) {
-                  final int? targetOrder = int.tryParse(propertyIdStr);
-                  if (targetOrder != null) {
-                    try {
-                      final matchedPropByOrder = allProperties.firstWhere((p) => p.order == targetOrder);
-                      resolvedPropertyName = matchedPropByOrder.name;
-                      resolvedPropertyAddress = matchedPropByOrder.address;
-                      resolvedPropertyId = matchedPropByOrder.id;
-                      resolvedCompanyId = matchedPropByOrder.companyId;
-                    } catch (_) {}
-                  }
-                }
               }
             }
 
@@ -394,28 +505,29 @@ class MonthlyTimeline extends _$MonthlyTimeline {
           }
         }
 
-        void processReservationsData(Object? data) {
+        void processReservationsData(Object? data, String itemCompanyId) {
           if (data is List) {
             for (int i = 0; i < data.length; i++) {
-              if (data[i] != null) processItem(i.toString(), data[i]);
+              if (data[i] != null) processItem(i.toString(), data[i], itemCompanyId);
             }
           } else if (data is Map) {
-            data.forEach((key, value) => processItem(key.toString(), value));
+            data.forEach((key, value) => processItem(key.toString(), value, itemCompanyId));
           }
         }
 
         if (activeCompanyId == null) {
           if (rawData is Map) {
-            for (final companyData in rawData.values) {
-              processReservationsData(companyData);
-            }
+            rawData.forEach((compId, companyData) {
+              processReservationsData(companyData, compId.toString());
+            });
           } else if (rawData is List) {
-            for (final companyData in rawData) {
-              if (companyData != null) processReservationsData(companyData);
+            for (int i = 0; i < rawData.length; i++) {
+              final companyData = rawData[i];
+              if (companyData != null) processReservationsData(companyData, i.toString());
             }
           }
         } else {
-          processReservationsData(rawData);
+          processReservationsData(rawData, activeCompanyId);
         }
 
         yield propertyMap;

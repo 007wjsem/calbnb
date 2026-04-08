@@ -6,12 +6,13 @@ class User {
   final AppRole role;
   final String? email;
   final String? phone;
+  final String? phoneCountryCode;
   final String? address;
   final String? emergencyContact;
-  final double? payRate; // Optional, useful for cleaners or inspectors
   final bool isActive;
   final List<String> companyIds;
   final String? activeCompanyId;
+  final String? language;
 
   const User({
     required this.id,
@@ -20,11 +21,12 @@ class User {
     this.isActive = true,
     this.email,
     this.phone,
+    this.phoneCountryCode,
     this.address,
     this.emergencyContact,
-    this.payRate,
     this.companyIds = const [],
     this.activeCompanyId,
+    this.language,
   });
 
   User copyWith({
@@ -33,11 +35,12 @@ class User {
     bool? isActive,
     String? email,
     String? phone,
+    String? phoneCountryCode,
     String? address,
     String? emergencyContact,
-    double? payRate,
     List<String>? companyIds,
     String? activeCompanyId,
+    String? language,
   }) {
     return User(
       id: id,
@@ -46,11 +49,12 @@ class User {
       isActive: isActive ?? this.isActive,
       email: email ?? this.email,
       phone: phone ?? this.phone,
+      phoneCountryCode: phoneCountryCode ?? this.phoneCountryCode,
       address: address ?? this.address,
       emergencyContact: emergencyContact ?? this.emergencyContact,
-      payRate: payRate ?? this.payRate,
       companyIds: companyIds ?? this.companyIds,
       activeCompanyId: activeCompanyId ?? this.activeCompanyId,
+      language: language ?? this.language,
     );
   }
 }

@@ -117,7 +117,9 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                         children: [
                           const Icon(Icons.event_available_outlined, size: 14, color: Colors.blueGrey),
                           const SizedBox(width: 4),
-                          Text(AppLocalizations.of(context)!.checkoutDateLabel(DateFormat.yMMMd(Localizations.localeOf(context).languageCode).format(DateTime.parse(assignment.date))), style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                          Expanded(
+                            child: Text(AppLocalizations.of(context)!.checkoutDateLabel(DateFormat.yMMMd(Localizations.localeOf(context).languageCode).format(DateTime.parse(assignment.date))), style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                          ),
                         ]
                       ),
                       const SizedBox(height: 2),
@@ -125,7 +127,9 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                         children: [
                           const Icon(Icons.assignment_turned_in_outlined, size: 14, color: Colors.blueGrey),
                           const SizedBox(width: 4),
-                          Text(AppLocalizations.of(context)!.assignedDateLabel(DateFormat.yMMMd(Localizations.localeOf(context).languageCode).add_jm().format(DateTime.parse(assignment.assignedAt))), style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                          Expanded(
+                            child: Text(AppLocalizations.of(context)!.assignedDateLabel(DateFormat.yMMMd(Localizations.localeOf(context).languageCode).add_jm().format(DateTime.parse(assignment.assignedAt))), style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                          ),
                         ]
                       ),
                     ],
@@ -145,7 +149,7 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(AppLocalizations.of(context)!.cleanerLabel(assignment.cleanerName), style: const TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w600)),
+            Text(AppLocalizations.of(context)!.cleanerLabel(assignment.cleaners.map((c) => c.name).join(', ')), style: const TextStyle(color: Colors.blueGrey, fontWeight: FontWeight.w600)),
             if (assignment.endTime.isNotEmpty)
               Text(AppLocalizations.of(context)!.finishedAtLabel(DateFormat.jm(Localizations.localeOf(context).languageCode).format(DateTime.parse(assignment.endTime))), style: const TextStyle(color: Colors.blueGrey, fontSize: 12)),
             
@@ -248,8 +252,10 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
 
             const Divider(),
             if (assignment.status == CleaningStatus.pendingInspection)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                    OutlinedButton.icon(
                       onPressed: () => _showReviewDialog(assignment, false),
@@ -257,7 +263,6 @@ class _InspectorDashboardState extends ConsumerState<InspectorDashboard> {
                       label: Text(AppLocalizations.of(context)!.declineFixNeededAction),
                       style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                    ),
-                   const SizedBox(width: 12),
                    ElevatedButton.icon(
                       onPressed: () => _showReviewDialog(assignment, true),
                       icon: const Icon(Icons.check),

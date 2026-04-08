@@ -7,12 +7,20 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:calbnb/l10n/app_localizations.dart';
 import 'core/theme/app_colors.dart';
 import 'features/settings/presentation/locale_provider.dart';
+import 'package:flutter/services.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Lock orientation to vertical only
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  
   runApp(const ProviderScope(child: MyApp()));
 }
 

@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import '../../features/subscription/presentation/superadmin_subscriptions_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../core/constants/roles.dart';
@@ -18,6 +19,11 @@ import '../../features/company/presentation/company_subscription_screen.dart';
 import '../../features/dashboard/presentation/owner_dashboard.dart';
 import '../../features/dashboard/presentation/advanced_reports_screen.dart';
 import '../../features/inbox/presentation/team_inbox_screen.dart';
+import '../../features/payroll/presentation/cleaner_payments_screen.dart';
+import '../../features/onboarding/presentation/lead_registration_screen.dart';
+import '../../features/admin/presentation/lead_management_screen.dart';
+import '../../features/admin/presentation/admin_support_dashboard.dart';
+import '../../features/support/presentation/user_support_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
@@ -30,6 +36,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAtRoot = state.matchedLocation == '/';
 
       if (!isLoggedIn) {
+        if (state.matchedLocation == '/register_company') return null;
         return isLoggingIn ? null : '/login';
       }
 
@@ -115,12 +122,44 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CompanySubscriptionScreen(),
       ),
       GoRoute(
+        path: '/superadmin/subscriptions',
+        builder: (context, state) => const SuperAdminSubscriptionsScreen(),
+      ),
+      GoRoute(
         path: '/admin/reports',
         builder: (context, state) => const AdvancedReportsScreen(),
       ),
       GoRoute(
         path: '/inbox',
-        builder: (context, state) => const TeamInboxScreen(),
+        builder: (context, state) => const InboxScreen(),
+      ),
+      GoRoute(
+        path: '/cleaner_payments',
+        builder: (context, state) => const CleanerPaymentsScreen(),
+      ),
+      GoRoute(
+        path: '/register_company',
+        builder: (context, state) => const LeadRegistrationScreen(),
+      ),
+      GoRoute(
+        path: '/admin/leads',
+        builder: (context, state) => const LeadManagementScreen(),
+      ),
+      GoRoute(
+        path: '/admin/support',
+        builder: (context, state) => const AdminSupportDashboard(),
+      ),
+      GoRoute(
+        path: '/admin/support/:id',
+        builder: (context, state) => AdminSupportDetailScreen(ticketId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/support',
+        builder: (context, state) => const UserSupportScreen(),
+      ),
+      GoRoute(
+        path: '/support/:id',
+        builder: (context, state) => UserSupportDetailScreen(ticketId: state.pathParameters['id']!),
       ),
     ],
   );

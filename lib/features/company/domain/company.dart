@@ -15,6 +15,7 @@ class Company {
   // Platinum-specific fields
   final String baseCurrency;   // ISO currency code e.g. 'USD', 'EUR'
   final String currencySymbol; // Display symbol e.g. '$', '€'
+  final String phoneCountryCode; // Dialing prefix e.g. '+51', '+1'
 
   // Diamond-specific fields
   final DateTime? supportExpiresAt;   // When dedicated support period ends
@@ -32,6 +33,7 @@ class Company {
     this.subscriptionEndDate,
     this.baseCurrency = 'USD',
     this.currencySymbol = '\$',
+    this.phoneCountryCode = '+1',
     this.stripeCustomerId,
     this.stripeSubscriptionId,
     this.supportExpiresAt,
@@ -70,6 +72,7 @@ class Company {
     SubscriptionStatus? status,
     String? baseCurrency,
     String? currencySymbol,
+    String? phoneCountryCode,
     String? stripeCustomerId,
     String? stripeSubscriptionId,
     int? propertyCount,
@@ -86,6 +89,7 @@ class Company {
       status: status ?? this.status,
       baseCurrency: baseCurrency ?? this.baseCurrency,
       currencySymbol: currencySymbol ?? this.currencySymbol,
+      phoneCountryCode: phoneCountryCode ?? this.phoneCountryCode,
       stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
       stripeSubscriptionId: stripeSubscriptionId ?? this.stripeSubscriptionId,
       propertyCount: propertyCount ?? this.propertyCount,
@@ -106,7 +110,7 @@ class Company {
       status: SubscriptionStatus.fromString(map['subscriptionStatus']?.toString()),
       stripeCustomerId: map['stripeCustomerId']?.toString(),
       stripeSubscriptionId: map['stripeSubscriptionId']?.toString(),
-      propertyCount: (map['propertyCount'] as num?)?.toInt() ?? 0,
+      propertyCount: int.tryParse(map['propertyCount']?.toString() ?? '') ?? 0,
       createdAt: map['createdAt'] != null
           ? DateTime.fromMillisecondsSinceEpoch(int.tryParse(map['createdAt'].toString()) ?? DateTime.now().millisecondsSinceEpoch)
           : DateTime.now(),
@@ -116,9 +120,10 @@ class Company {
       supportExpiresAt: map['supportExpiresAt'] != null
           ? DateTime.fromMillisecondsSinceEpoch(int.tryParse(map['supportExpiresAt'].toString()) ?? 0)
           : null,
-      majorReleasesUsed: (map['majorReleasesUsed'] as num?)?.toInt() ?? 0,
+      majorReleasesUsed: int.tryParse(map['majorReleasesUsed']?.toString() ?? '') ?? 0,
       baseCurrency: map['baseCurrency']?.toString() ?? 'USD',
       currencySymbol: map['currencySymbol']?.toString() ?? '\$',
+      phoneCountryCode: map['phoneCountryCode']?.toString() ?? '+1',
       companyLogoBase64: map['companyLogoBase64']?.toString(),
     );
   }
@@ -138,6 +143,7 @@ class Company {
       'majorReleasesUsed': majorReleasesUsed,
       'baseCurrency': baseCurrency,
       'currencySymbol': currencySymbol,
+      'phoneCountryCode': phoneCountryCode,
       if (companyLogoBase64 != null) 'companyLogoBase64': companyLogoBase64,
     };
   }

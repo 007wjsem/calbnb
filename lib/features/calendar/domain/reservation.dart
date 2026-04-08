@@ -8,6 +8,7 @@ class Reservation {
   final String companyId;
   final String guestName;
   final String propertyName;
+  final String? propertyId; // <-- NEW
   final DateTime date;
   final ReservationEventType type;
 
@@ -16,6 +17,7 @@ class Reservation {
     required this.companyId,
     required this.guestName,
     required this.propertyName,
+    this.propertyId,
     required this.date,
     required this.type,
   });

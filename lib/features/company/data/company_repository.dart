@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/company.dart';
@@ -14,40 +15,55 @@ class CompanyRepository {
     });
   }
 
-  Stream<List<Company>> watchAllCompanies() {
-    return _db.ref('companies').onValue.map((event) {
-      if (!event.snapshot.exists) return [];
-      final value = event.snapshot.value;
-
-      // Normalize to a Map regardless of how Firebase stored it
-      Map<dynamic, dynamic> rawMap = {};
-      if (value is List) {
-        for (int i = 0; i < value.length; i++) {
-          if (value[i] != null) rawMap[i.toString()] = value[i];
+  Stream<List<Company>> watchAllCompanies() async* {
+    final ref = _db.ref('companies');
+    await for (final event in ref.onValue) {
+      try {
+        final snapshot = event.snapshot;
+        if (!snapshot.exists || snapshot.value == null) {
+          yield [];
+          continue;
         }
-      } else if (value is Map) {
-        rawMap = Map<dynamic, dynamic>.from(value);
-      }
 
-      final List<Company> companies = [];
-      for (final entry in rawMap.entries) {
-        final entryValue = entry.value;
-        // Skip any entry that isn't a Map (e.g., nested sub-nodes that were
-        // accidentally hoisted, null entries, or non-company keys)
-        if (entryValue is! Map) continue;
-        try {
-          companies.add(Company.fromMap(
-            entry.key.toString(),
-            Map<dynamic, dynamic>.from(entryValue),
-          ));
-        } catch (e) {
-          // Skip malformed entries rather than crashing the whole stream
-          print('Skipping malformed company entry ${entry.key}: $e');
+        final data = snapshot.value;
+        final List<Company> companies = [];
+
+        if (data is Map) {
+          for (final entry in data.entries) {
+            final val = entry.value;
+            if (val is Map) {
+              try {
+                companies.add(Company.fromMap(
+                  entry.key.toString(),
+                  Map<dynamic, dynamic>.from(val),
+                ));
+              } catch (e) {
+                debugPrint('Error parsing company ${entry.key}: $e');
+              }
+            }
+          }
+        } else if (data is List) {
+          for (int i = 0; i < data.length; i++) {
+            final val = data[i];
+            if (val is Map) {
+              try {
+                companies.add(Company.fromMap(
+                  i.toString(),
+                  Map<dynamic, dynamic>.from(val),
+                ));
+              } catch (e) {
+                debugPrint('Error parsing company at index $i: $e');
+              }
+            }
+          }
         }
+        
+        yield companies;
+      } catch (e) {
+        debugPrint('Error in watchAllCompanies stream: $e');
+        yield [];
       }
-
-      return companies;
-    });
+    }
   }
   Future<void> createCompany(Company company) async {
     final newRef = company.id.isEmpty ? _db.ref('companies').push() : _db.ref('companies/${company.id}');
@@ -83,10 +99,11 @@ class CompanyRepository {
   Future<void> renewSubscription({
     required String companyId,
     required SubscriptionTier tier,
+    DateTime? now,
   }) async {
-    final DateTime now = DateTime.now();
+    final DateTime actualNow = now ?? DateTime.now();
     // Set expiration to 1 month from today
-    final DateTime endDate = DateTime(now.year, now.month + 1, now.day, now.hour, now.minute);
+    final DateTime endDate = DateTime(actualNow.year, actualNow.month + 1, actualNow.day, actualNow.hour, actualNow.minute);
     
     final updates = <String, dynamic>{
       'subscriptionTier': tier.value,
@@ -116,10 +133,11 @@ class CompanyRepository {
     required String baseCurrency,
     required String currencySymbol,
   }) async {
-    await _db.ref('companies/$companyId').update({
+    final updates = <String, dynamic>{
       'baseCurrency': baseCurrency,
       'currencySymbol': currencySymbol,
-    });
+    };
+    await _db.ref('companies/$companyId').update(updates);
   }
 
   /// Update (or remove) the company's white-label logo (Diamond feature).

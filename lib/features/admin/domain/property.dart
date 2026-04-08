@@ -18,6 +18,8 @@ class Property {
   final String housePin;
   final String garagePin;
   final int order; // New field to store sorting position
+  final String syncId; // New field for calendar synchronization slug
+  final bool isCohost;
   final String cleaningInstructions;
   final List<String> instructionPhotos; // Base64 encoded
   final List<String> checklists;
@@ -49,6 +51,8 @@ class Property {
     required this.housePin,
     required this.garagePin,
     this.order = 0, // Default to 0
+    this.syncId = '',
+    this.isCohost = false,
     this.cleaningInstructions = '',
     this.instructionPhotos = const [],
     this.checklists = const [],
@@ -79,6 +83,8 @@ class Property {
     String? housePin,
     String? garagePin,
     int? order,
+    String? syncId,
+    bool? isCohost,
     String? cleaningInstructions,
     List<String>? instructionPhotos,
     List<String>? checklists,
@@ -107,6 +113,8 @@ class Property {
       housePin: housePin ?? this.housePin,
       garagePin: garagePin ?? this.garagePin,
       order: order ?? this.order,
+      syncId: syncId ?? this.syncId,
+      isCohost: isCohost ?? this.isCohost,
       cleaningInstructions: cleaningInstructions ?? this.cleaningInstructions,
       instructionPhotos: instructionPhotos ?? this.instructionPhotos,
       checklists: checklists ?? this.checklists,

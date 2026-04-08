@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import '../data/auth_repository.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/constants/roles.dart';
@@ -37,20 +38,71 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text;
       await ref.read(authControllerProvider.notifier).login(email, password);
-      if (mounted) {
-        final role = ref.read(authControllerProvider)?.role;
-        if (role == AppRole.cleaner || role == AppRole.inspector) {
-          context.go('/assignments');
-        } else {
-          context.go('/');
+    } catch (e) {
+      // UI-level safety net for macOS Keychain errors:
+      // Even if the repository throws, Firebase may have authenticated the user
+      // in memory. Check both the Riverpod state and FirebaseAuth.instance.currentUser.
+      final errStr = e.toString().toLowerCase();
+      final isKeychainErr = errStr.contains('keychain') ||
+          errStr.contains('nslocalizedfailurereasonerrorkey');
+
+      if (isKeychainErr) {
+        // Try to recover: load user data if the auth state was set despite the error.
+        final appUser = ref.read(authControllerProvider);
+        final fbUser = fb.FirebaseAuth.instance.currentUser;
+
+        if (appUser != null) {
+          // Repository recovery succeeded — just navigate.
+          if (mounted) {
+            if (mounted) setState(() => _isLoading = false);
+            final role = appUser.role;
+            if (role == AppRole.cleaner || role == AppRole.inspector) {
+              context.go('/assignments');
+            } else {
+              context.go('/');
+            }
+          }
+          return;
+        } else if (fbUser != null) {
+          // Firebase has a session but the app state wasn't set — try loading manually.
+          try {
+            await ref.read(authControllerProvider.notifier).login(
+              _emailController.text.trim(),
+              _passwordController.text,
+            );
+          } catch (_) {}
+          if (mounted) {
+            final role = ref.read(authControllerProvider)?.role;
+            if (mounted) setState(() => _isLoading = false);
+            if (role != null) {
+              if (role == AppRole.cleaner || role == AppRole.inspector) {
+                context.go('/assignments');
+              } else {
+                context.go('/');
+              }
+              return;
+            }
+          }
         }
       }
-    } catch (e) {
-      setState(() {
-        _error = e.toString().replaceAll('Exception: ', '');
-      });
+
+      if (mounted) {
+        setState(() {
+          _error = e.toString().replaceAll('Exception: ', '');
+        });
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+
+    // Navigate on success (no error thrown).
+    if (mounted && _error == null) {
+      final role = ref.read(authControllerProvider)?.role;
+      if (role == AppRole.cleaner || role == AppRole.inspector) {
+        context.go('/assignments');
+      } else {
+        context.go('/');
+      }
     }
   }
 
@@ -188,6 +240,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: _isLoading
                                 ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
                                 : Text(l10n.loginButton, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () => context.go('/register_company'),
+                          child: Text(
+                            l10n.registerButton,
+                            style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],

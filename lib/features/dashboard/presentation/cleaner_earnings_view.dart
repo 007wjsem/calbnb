@@ -49,7 +49,7 @@ class CleanerEarningsView extends ConsumerWidget {
                     
                     // Filter exclusively for the current user's completed/approved jobs
                     final myCompletedJobs = assignments.where((a) =>
-                        a.cleanerId == currentUser?.id && a.status == CleaningStatus.approved).toList();
+                        a.cleaners.any((c) => c.id == currentUser?.id) && a.status == CleaningStatus.approved).toList();
 
                     // Calculate the start and end of the current week (Monday-Sunday)
                     final now = DateTime.now();
@@ -80,35 +80,50 @@ class CleanerEarningsView extends ConsumerWidget {
                     // Sort jobs by date descending (newest first)
                     currentWeekJobs.sort((a, b) => b.date.compareTo(a.date));
 
+                    double _getCleanerCut(CleaningAssignment job) {
+                      final specificCleaner = job.cleaners.where((c) => c.id == currentUser?.id).firstOrNull;
+                      if (specificCleaner != null && specificCleaner.fee > 0) return specificCleaner.fee;
+                      
+                      final searchProp = job.propertyId.trim().toLowerCase();
+                      Property? jobProp = properties.where((p) => p.id == job.propertyId).firstOrNull;
+                      if (jobProp == null) {
+                        jobProp = properties.where((p) {
+                          final propName = p.name.trim().toLowerCase();
+                          final propIdStr = p.id.trim().toLowerCase();
+                          final syncId = p.syncId.trim().toLowerCase();
+                          return propName == searchProp || propIdStr == searchProp ||
+                                 propName.contains(searchProp) || searchProp.contains(propName) ||
+                                 (syncId.isNotEmpty && (syncId == searchProp || searchProp.contains(syncId)));
+                        }).firstOrNull;
+                      }
+                      return (jobProp?.cleaningFee ?? 0.0) * 0.70;
+                    }
+
                     // Calculate totals
                     double currentWeekTotal = 0;
                     double previousWeekTotal = 0;
 
                     for (var job in currentWeekJobs) {
-                       final property = properties.where((p) => p.name == job.propertyId).firstOrNull;
-                       if (property != null) {
-                          currentWeekTotal += property.cleaningFee;
-                       }
+                       currentWeekTotal += _getCleanerCut(job);
                     }
 
                     for (var job in previousWeekJobs) {
-                       final property = properties.where((p) => p.name == job.propertyId).firstOrNull;
-                       if (property != null) {
-                          previousWeekTotal += property.cleaningFee;
-                       }
+                       previousWeekTotal += _getCleanerCut(job);
                     }
 
                     final difference = currentWeekTotal - previousWeekTotal;
                     final isPositive = difference >= 0;
                     final currencySymbol = ref.watch(currencySymbolProvider);
 
-                    return Column(
-                      children: [
-                        // Totals Summary Cards
-                        Row(
+                    return LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isMobile = constraints.maxWidth < 600;
+                        
+                        return Column(
                           children: [
-                            Expanded(
-                              child: _SummaryCard(
+                            // Totals Summary Cards
+                            if (isMobile) ...[
+                              _SummaryCard(
                                 title: AppLocalizations.of(context)!.thisWeekTitle,
                                 amount: currentWeekTotal,
                                 subtitle: AppLocalizations.of(context)!.propertiesCleanedLabel(currentWeekJobs.length),
@@ -117,10 +132,8 @@ class CleanerEarningsView extends ConsumerWidget {
                                 isPrimary: true,
                                 currencySymbol: currencySymbol,
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _SummaryCard(
+                              const SizedBox(height: 12),
+                              _SummaryCard(
                                 title: AppLocalizations.of(context)!.lastWeekTitle,
                                 amount: previousWeekTotal,
                                 subtitle: AppLocalizations.of(context)!.propertiesCleanedLabel(previousWeekJobs.length),
@@ -129,80 +142,106 @@ class CleanerEarningsView extends ConsumerWidget {
                                 isPrimary: false,
                                 currencySymbol: currencySymbol,
                               ),
-                            ),
-                          ],
-                        ),
-                        
-                        // Trending Indicator
-                        if (previousWeekTotal > 0 || currentWeekTotal > 0) ...[
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                isPositive ? Icons.trending_up : Icons.trending_down,
-                                color: isPositive ? Colors.green : Colors.red,
+                            ] else 
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _SummaryCard(
+                                      title: AppLocalizations.of(context)!.thisWeekTitle,
+                                      amount: currentWeekTotal,
+                                      subtitle: AppLocalizations.of(context)!.propertiesCleanedLabel(currentWeekJobs.length),
+                                      icon: Icons.attach_money,
+                                      color: Colors.green.shade600,
+                                      isPrimary: true,
+                                      currencySymbol: currencySymbol,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _SummaryCard(
+                                      title: AppLocalizations.of(context)!.lastWeekTitle,
+                                      amount: previousWeekTotal,
+                                      subtitle: AppLocalizations.of(context)!.propertiesCleanedLabel(previousWeekJobs.length),
+                                      icon: Icons.history,
+                                      color: Colors.blueGrey,
+                                      isPrimary: false,
+                                      currencySymbol: currencySymbol,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                AppLocalizations.of(context)!.comparedToLastWeekLabel('${isPositive ? "+" : ""}$currencySymbol${difference.toStringAsFixed(2)}'),
-                                style: TextStyle(
-                                  color: isPositive ? Colors.green.shade700 : Colors.red.shade700,
-                                  fontWeight: FontWeight.bold
-                                ),
-                              )
+                            
+                            // Trending Indicator
+                            if (previousWeekTotal > 0 || currentWeekTotal > 0) ...[
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    isPositive ? Icons.trending_up : Icons.trending_down,
+                                    color: isPositive ? Colors.green : Colors.red,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    AppLocalizations.of(context)!.comparedToLastWeekLabel('${isPositive ? "+" : ""}$currencySymbol${difference.toStringAsFixed(2)}'),
+                                    style: TextStyle(
+                                      color: isPositive ? Colors.green.shade700 : Colors.red.shade700,
+                                      fontWeight: FontWeight.bold
+                                    ),
+                                  )
+                                ],
+                              ),
                             ],
-                          ),
-                        ],
 
-                        const SizedBox(height: 32),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            AppLocalizations.of(context)!.thisWeeksDetailsTitle,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // Detail List
-                        Expanded(
-                          child: currentWeekJobs.isEmpty 
-                              ? Center(child: Text(AppLocalizations.of(context)!.noCompletedCleaningsThisWeekDesc, style: const TextStyle(color: Colors.grey, fontSize: 16)))
-                              : ListView.builder(
-                                  itemCount: currentWeekJobs.length,
-                                  itemBuilder: (context, index) {
-                                    final job = currentWeekJobs[index];
-                                    final property = properties.where((p) => p.name == job.propertyId).firstOrNull;
-                                    final earning = property?.cleaningFee ?? 0.0;
+                            const SizedBox(height: 32),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                AppLocalizations.of(context)!.thisWeeksDetailsTitle,
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            
+                            // Detail List
+                            Expanded(
+                              child: currentWeekJobs.isEmpty 
+                                  ? Center(child: Text(AppLocalizations.of(context)!.noCompletedCleaningsThisWeekDesc, style: const TextStyle(color: Colors.grey, fontSize: 16)))
+                                  : ListView.builder(
+                                      itemCount: currentWeekJobs.length,
+                                      itemBuilder: (context, index) {
+                                        final job = currentWeekJobs[index];
+                                        final earning = _getCleanerCut(job);
 
-                                    return Card(
-                                      margin: const EdgeInsets.only(bottom: 8),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      child: ListTile(
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                        leading: CircleAvatar(
-                                          backgroundColor: Colors.green.shade50,
-                                          child: Icon(Icons.check_circle, color: Colors.green.shade600),
-                                        ),
-                                        title: Text(job.propertyId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                        subtitle: Text(DateFormat.yMMMEd().format(DateTime.parse(job.date))),
-                                        trailing: Text(
-                                          '$currencySymbol${earning.toStringAsFixed(2)}',
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700, fontSize: 18),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                )
-                        )
-                      ],
+                                        return Card(
+                                          margin: const EdgeInsets.only(bottom: 8),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                          child: ListTile(
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                                            leading: CircleAvatar(
+                                              backgroundColor: Colors.green.shade50,
+                                              child: Icon(Icons.check_circle, color: Colors.green.shade600),
+                                            ),
+                                            title: Text(job.propertyId, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                            subtitle: Text(DateFormat.yMMMEd().format(DateTime.parse(job.date))),
+                                            trailing: Text(
+                                              '$currencySymbol${earning.toStringAsFixed(2)}',
+                                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700, fontSize: 18),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    )
+                            )
+                          ],
+                        );
+                      },
                     );
-                  }
+                  },
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(child: Text('Error: $error')),
+              error: (error, stack) => Center(child: Text(AppLocalizations.of(context)!.genericError(error.toString()))),
             ),
           )
         ]
@@ -233,7 +272,7 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isPrimary ? color.withOpacity(0.05) : Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -248,17 +287,21 @@ class _SummaryCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: TextStyle(color: Colors.blueGrey.shade700, fontSize: 16, fontWeight: FontWeight.bold)),
-              Icon(icon, color: color, size: 28),
+              Text(title, style: TextStyle(color: Colors.blueGrey.shade700, fontSize: 14, fontWeight: FontWeight.bold)),
+              Icon(icon, color: color, size: 24),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            '$currencySymbol${amount.toStringAsFixed(2)}',
-            style: TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: color, letterSpacing: -1),
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '$currencySymbol${amount.toStringAsFixed(2)}',
+              style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: color, letterSpacing: -1),
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(subtitle, style: TextStyle(color: Colors.blueGrey.shade500, fontSize: 13, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 6),
+          Text(subtitle, style: TextStyle(color: Colors.blueGrey.shade500, fontSize: 12, fontWeight: FontWeight.w500)),
         ],
       ),
     );

@@ -6,7 +6,7 @@ part of 'reservation_repository.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$dailyReservationsHash() => r'6fb542e01bb769ef71f3051299c1d3cf18689950';
+String _$dailyReservationsHash() => r'8951d3dcbf717494aef8eb26b6e13f814beac48f';
 
 /// Copied from Dart SDK
 class _SystemHash {
@@ -175,7 +175,7 @@ class _DailyReservationsProviderElement
 }
 
 String _$dateRangeReservationsHash() =>
-    r'7e4e437a1fca528fac44a100ed1bcbc6f598d01d';
+    r'bea7f2ea98d6605c9b12165f881985e7fcee2661';
 
 abstract class _$DateRangeReservations
     extends BuildlessAutoDisposeStreamNotifier<
@@ -348,7 +348,7 @@ class _DateRangeReservationsProviderElement
   DateTime get endDate => (origin as DateRangeReservationsProvider).endDate;
 }
 
-String _$monthlyTimelineHash() => r'51181062ed59117a5f940c1749fe730677c33f21';
+String _$monthlyTimelineHash() => r'9e7ae2c7bb6c7186bc8bcd14cc15fe716ba9737a';
 
 abstract class _$MonthlyTimeline extends BuildlessAutoDisposeStreamNotifier<
     Map<String, List<TimelineReservation>>> {

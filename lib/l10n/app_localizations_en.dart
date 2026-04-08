@@ -60,7 +60,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get myProfile => 'My Profile';
 
   @override
-  String get teamInbox => 'Team Inbox';
+  String get teamInbox => 'Inbox';
 
   @override
   String get myEarnings => 'My Earnings';
@@ -220,6 +220,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get currencyUpdatedTo => 'Currency updated to';
 
   @override
+  String get phoneCountryCodeLabel => 'WhatsApp Country Code';
+
+  @override
+  String get phoneCountryCodeHelper =>
+      'Prepended to staff phone numbers when sending WhatsApp messages';
+
+  @override
+  String whatsAppCleaningMessage(
+      String name, String date, String property, String address) {
+    return 'Hello $name! You have a cleaning assignment on $date at $property, $address.';
+  }
+
+  @override
+  String get messageCleanerOnWhatsApp => 'Message Cleaner on WhatsApp';
+
+  @override
+  String get noPhoneOnFileError => 'This cleaner has no phone number on file.';
+
+  @override
+  String get couldNotOpenWhatsApp => 'Could not open WhatsApp';
+
+  @override
   String get whiteLabelBranding => 'White-Label Branding';
 
   @override
@@ -333,7 +355,38 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createUserAction => 'Create User';
 
   @override
-  String get todaysCleaningsTitle => 'Today\'\'s Cleanings';
+  String get todaysCleaningsTitle => 'Today\'s Cleanings';
+
+  @override
+  String get assignmentDetailsTitle => 'Assignment Details';
+
+  @override
+  String get selectCleanerLabel => 'Select Cleaner';
+
+  @override
+  String get selectInspectorLabel => 'Select Inspector (Optional)';
+
+  @override
+  String get managerObservationsLabel => 'Manager observations for cleaner';
+
+  @override
+  String get propertyCleaningFeeLabel =>
+      'Property Cleaning Fee (Charged to Owner)';
+
+  @override
+  String get propertyInstructionsLabel => 'Property Instructions';
+
+  @override
+  String get cleanerIncidentsLabel => 'Cleaner Reported Incidents';
+
+  @override
+  String get cancelCleaningAction => 'Cancel Cleaning';
+
+  @override
+  String get createAssignmentAction => 'Create Assignment';
+
+  @override
+  String get pleaseSelectCleanerError => 'Please select a cleaner';
 
   @override
   String get ownerPortalTitle => 'Owner Portal';
@@ -444,6 +497,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get statusApprovedCompleted => 'Approved (Completed)';
+
+  @override
+  String get statusLabel => 'Status';
+
+  @override
+  String inspectorLabel(Object name) {
+    return 'Inspector: $name';
+  }
+
+  @override
+  String get checkInBadge => 'CHECK-IN';
+
+  @override
+  String get checkOutBadge => 'CHECK-OUT';
+
+  @override
+  String get reservedLabel => 'Reserved';
 
   @override
   String checkoutDateLabel(String date) {
@@ -561,7 +631,19 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get teamInboxTitle => 'Team Inbox';
+  String get teamInboxTitle => 'Inbox';
+
+  @override
+  String get cleanersChannel => 'Cleaners Channel';
+
+  @override
+  String get inspectorsChannel => 'Inspectors Channel';
+
+  @override
+  String get generalChannel => 'General';
+
+  @override
+  String get directMessages => 'Direct Messages';
 
   @override
   String get noActiveCompanyFound => 'No active company found.';
@@ -730,10 +812,26 @@ class AppLocalizationsEn extends AppLocalizations {
   String get stepAccessCleaning => 'Access & Cleaning';
 
   @override
+  String get syncIdLabel => 'Sync ID / Slug';
+
+  @override
+  String get isCohostLabel => 'Is Co-Host?';
+
+  @override
+  String get isCohostHelper =>
+      'Enable if your company manages this property but does not own it';
+
+  @override
   String get assignToCompanyLabel => 'Assign to Company *';
 
   @override
   String get selectCompanyHint => 'Select company';
+
+  @override
+  String get generateAction => 'Generate';
+
+  @override
+  String get cleanerFeeLabel => 'Cleaner Fee';
 
   @override
   String get companyLabel => 'Company';
@@ -766,10 +864,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get countryLabel => 'Country';
 
   @override
-  String get cleaningFeeLabel => 'Cleaning Fee (\$)';
+  String get cleaningFeeLabel => 'Cleaning Fee';
 
   @override
-  String get sizeLabel => 'Size (e.g. 1500 sqft)';
+  String get sizeLabel => 'AxBxC (Rooms x Baths x Floors)';
 
   @override
   String get schedulingSettingsLabel => 'Scheduling Settings (Silver+)';
@@ -833,7 +931,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noneUnassigned => 'None / Unassigned';
 
   @override
-  String get ownerNameLegacyLabel => 'Owner Name (Legacy)';
+  String get ownerNameLegacyLabel => 'Owner Name (For Reference)';
 
   @override
   String get propertyManagementCompanyLabel => 'Property Management Company';
@@ -913,6 +1011,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get garagePrefix => 'Garage:';
 
   @override
+  String get settingsTabLabel => 'Settings';
+
+  @override
+  String get feedbackTabLabel => 'Feedback';
+
+  @override
+  String get noFeedbackLabel => 'No operational feedback yet.';
+
+  @override
   String get englishToggle => 'English (US)';
 
   @override
@@ -980,7 +1087,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planFeatureBronze1 => 'Up to 5 Properties';
 
   @override
-  String get planFeatureBronze2 => 'Up to 4 Users (1 Admin, 3 Cleaners)';
+  String get planFeatureBronze2 => 'Up to 2 Users';
 
   @override
   String get planFeatureBronze3 => 'Mobile App Access';
@@ -1001,10 +1108,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planFeatureSilver3 => 'Team Roles (Cleaner vs Manager)';
 
   @override
-  String get planFeatureGold1 => 'Up to 30 Properties';
+  String get planFeatureGold1 => 'Up to 40 Properties';
 
   @override
-  String get planFeatureGold2 => 'Up to 18 Users';
+  String get planFeatureGold2 => 'Up to 12 Users';
 
   @override
   String get planFeatureGold3 => 'Payroll Module & Reports';
@@ -1016,19 +1123,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planFeatureGold5 => 'Inspector Role';
 
   @override
-  String get planFeaturePlatinum1 => 'Up to 60 Properties';
+  String get planFeaturePlatinum1 => 'Up to 100 Properties';
 
   @override
-  String get planFeaturePlatinum2 => 'Up to 39 Users';
+  String get planFeaturePlatinum2 => 'Up to 50 Users';
 
   @override
   String get planFeaturePlatinum3 => 'Multi-Currency Billing';
 
   @override
-  String get planFeatureDiamond1 => 'Up to 100 Properties';
+  String get planFeatureDiamond1 => 'Unlimited Properties';
 
   @override
-  String get planFeatureDiamond2 => 'Up to 106 Users';
+  String get planFeatureDiamond2 => 'Unlimited Users';
 
   @override
   String get planFeatureDiamond3 => 'White Labeling';
@@ -1040,7 +1147,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get planFeatureDiamond5 => 'Priority WhatsApp Support';
 
   @override
-  String get planFeatureFree1 => 'Up to 2 Properties';
+  String get planFeatureFree1 => '1 Property Only';
 
   @override
   String get planFeatureFree2 => '1 User Only (Admin)';
@@ -1053,4 +1160,150 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get planFeatureFree5 => 'Manual Status Updates';
+
+  @override
+  String get addCleanerAction => 'Add Cleaner';
+
+  @override
+  String get mainCleanerLabel => 'Main Cleaner';
+
+  @override
+  String get assistantCleanerLabel => 'Assistant';
+
+  @override
+  String individualFeeLabel(String name) {
+    return 'Fee for $name';
+  }
+
+  @override
+  String get assistantPermissionNotice =>
+      'Assistant Role: Only the Main Cleaner can start or finish this job.';
+
+  @override
+  String get myPaymentsTitle => 'My Payments';
+
+  @override
+  String get paymentHistoryTab => 'Payment History';
+
+  @override
+  String get payoutSettingsTab => 'Payout Settings';
+
+  @override
+  String get paymentPreferencesSaved =>
+      'Payment preferences saved successfully.';
+
+  @override
+  String get payoutQuestion => 'How would you like to get paid?';
+
+  @override
+  String get bankTransferOption => 'Bank';
+
+  @override
+  String get bankNameLabel => 'Bank Name';
+
+  @override
+  String get savingsAccountLabel => 'Savings Account number';
+
+  @override
+  String get cciLabel => 'CCI (Interbank Code)';
+
+  @override
+  String registeredPhoneLabel(String provider) {
+    return 'Registered Phone Number for $provider';
+  }
+
+  @override
+  String get savePaymentInfoAction => 'Save Payment Information';
+
+  @override
+  String get viewProofAction => 'View Proof';
+
+  @override
+  String paidOnLabel(String date) {
+    return 'Paid on $date';
+  }
+
+  @override
+  String get noPaymentHistoryDesc => 'No payment history found.';
+
+  @override
+  String get registerButton => 'Register';
+
+  @override
+  String get leadRegistrationTitle => 'Join Calbnb';
+
+  @override
+  String get leadRegistrationSubtitle =>
+      'Tell us about your company and we\'ll get in contact to help you set up.';
+
+  @override
+  String get leadNameLabel => 'Company Name / Your Name';
+
+  @override
+  String get contactPreferenceLabel => 'How should we contact you?';
+
+  @override
+  String get emailOption => 'Email';
+
+  @override
+  String get whatsappOption => 'WhatsApp';
+
+  @override
+  String get countryPickerLabel => 'Country Code';
+
+  @override
+  String get phoneNumberPlaceholder => 'Phone Number (including country code)';
+
+  @override
+  String get emailPlaceholder => 'Your Email Address';
+
+  @override
+  String get submitLeadButton => 'Submit Interest';
+
+  @override
+  String get leadSubmittedSuccess =>
+      'Thank you! We received your request and will contact you soon.';
+
+  @override
+  String get fieldRequired => 'This field is required';
+
+  @override
+  String get superAdminLeadsMenu => 'Customer Leads';
+
+  @override
+  String get superAdminSupportMenu => 'Support Tickets';
+
+  @override
+  String get leadContactTemplateEmailTitle => 'Calbnb: Setting up your account';
+
+  @override
+  String leadContactTemplateWhatsApp(Object name) {
+    return 'Hi $name! I\'m the Calbnb admin. I saw you\'re interested in our platform. To set up your account, please provide the name of your company and the URL of your Airbnb property or your current calendar sync link (Lodgify, etc.).';
+  }
+
+  @override
+  String get supportTitle => 'Contact Support';
+
+  @override
+  String get supportSubtitle =>
+      'Describe your issue and our team will help you shortly.';
+
+  @override
+  String get newTicketButton => 'New Support Ticket';
+
+  @override
+  String get noTicketsMessage => 'No support tickets yet.';
+
+  @override
+  String get ticketStatusOpen => 'Open';
+
+  @override
+  String get ticketStatusClosed => 'Resolved';
+
+  @override
+  String get deleteTicketConfirm =>
+      'Are you sure you want to delete this conversation?';
+
+  @override
+  String get priorityTicketLabel => 'Priority Support';
 }

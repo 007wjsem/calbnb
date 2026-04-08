@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../admin/data/property_repository.dart';
 import '../../admin/domain/property.dart';
 import '../../company/data/company_repository.dart';
+import '../../company/domain/company.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../admin/data/user_repository.dart';
 import '../../auth/domain/user.dart' as domain_user;
@@ -32,11 +33,8 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
   bool _loading = true;
   String? _error;
 
-  bool _isReordering = false;
   StreamSubscription<List<Property>>? _propSub;
   PropertyRepository? _lastRepo;
-  // Snapshot of the order taken when entering reorder mode, used to revert on cancel.
-  List<Property> _backupProperties = [];
 
   @override
   void initState() {
@@ -63,30 +61,6 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     super.dispose();
   }
 
-  Future<void> _saveOrder() async {
-    setState(() => _loading = true);
-    final repo = ref.read(propertyRepositoryProvider);
-    try {
-      final orderIds = _allProperties.map((p) => p.id).toList();
-      await repo.updateOrderBatch(orderIds);
-      if (mounted) {
-        setState(() {
-          _isReordering = false;
-          _loading = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.propertyOrderSaved)),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${AppLocalizations.of(context)!.errorSavingPropertyOrder} $e')),
-        );
-      }
-    }
-  }
 
   void _subscribeToProperties() {
     setState(() => _loading = true);
@@ -162,6 +136,10 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     final company = companyAsync.valueOrNull;
     final companyCurrency = company?.currencySymbol ?? '\$';
     
+    // Warm up global companies for SuperAdmin use cases
+    if (isSuperAdmin) {
+      ref.watch(globalCompaniesProvider);
+    }
     final bool canAddProperty = isSuperAdmin || (company != null && (company.tier.includedProperties == null || _allProperties.length < company.tier.includedProperties!));
 
     final filtered = _filtered;
@@ -171,109 +149,110 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isReordering ? 'Arrange Properties' : l10n.propertiesTitle),
+        title: Text(l10n.propertiesTitle),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: _isReordering
-              ? () => setState(() {
-                    _allProperties = List.from(_backupProperties);
-                    _isReordering = false;
-                  })
-              : () => context.go('/'),
+          onPressed: () => context.go('/'),
         ),
         actions: [
-          if (isSuperAdmin && !_isReordering)
+          if (isSuperAdmin)
             IconButton(
               icon: const Icon(Icons.auto_awesome),
               tooltip: l10n.generateDummyProperty,
               onPressed: () async {
-                final dummyProp = _generateDummyProperty(activeCompanyId);
-                await repo.add(dummyProp);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added ${dummyProp.name}')));
+                // Check if already loading
+                final initialAsync = ref.read(globalCompaniesProvider);
+                
+                List<Company>? companies;
+                
+                if (initialAsync.isLoading) {
+                  // Show a temporary loading dialog/overlay
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (ctx) => const Center(child: CircularProgressIndicator()),
+                  );
+                  
+                  try {
+                    // Wait for the next value from the stream with a timeout
+                    companies = await ref.read(globalCompaniesProvider.future).timeout(const Duration(seconds: 5));
+                    if (context.mounted) Navigator.pop(context); // Close loading dialog
+                  } catch (e) {
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Timeout or error loading companies. Using fallback.')));
+                    }
+                    companies = initialAsync.valueOrNull ?? [];
+                  }
+                } else {
+                  companies = initialAsync.valueOrNull ?? [];
                 }
-              },
-            ),
-          if (!_isReordering)
-            IconButton(
-              icon: const Icon(Icons.swap_vert),
-              tooltip: 'Reorder Properties',
-              onPressed: () {
-                setState(() {
-                  _backupProperties = List.from(_allProperties);
-                  _isReordering = true;
-                });
-              },
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Cancel',
-              onPressed: () {
-                setState(() {
-                  _allProperties = List.from(_backupProperties);
-                  _isReordering = false;
-                });
+
+                String? selectedId = activeCompanyId;
+                final List<Company> finalCompanies = companies ?? [];
+
+                if (finalCompanies.isNotEmpty) {
+                  selectedId = await showDialog<String>(
+                    context: context,
+                    builder: (ctx) {
+                      String? dialogSelected = activeCompanyId ?? (finalCompanies.isEmpty ? null : finalCompanies.first.id);
+                      return StatefulBuilder(
+                        builder: (ctx, setDialogState) {
+                          return AlertDialog(
+                            title: Text(l10n.generateDummyProperty),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(l10n.selectCompanyHint),
+                                const SizedBox(height: 16),
+                                DropdownButtonFormField<String>(
+                                  isExpanded: true,
+                                  value: dialogSelected,
+                                  items: finalCompanies.map((c) => DropdownMenuItem(
+                                    value: c.id,
+                                    child: Text(c.name),
+                                  )).toList(),
+                                  onChanged: (val) => setDialogState(() => dialogSelected = val),
+                                ),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancelAction)),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(ctx, dialogSelected),
+                                child: Text(l10n.generateAction),
+                              ),
+                            ],
+                          );
+                        }
+                      );
+                    }
+                  );
+                } else if (activeCompanyId == null) {
+                   if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('No companies available. Please create a company first.')),
+                    );
+                   }
+                  return;
+                }
+
+                if (selectedId != null) {
+                  final dummyProp = _generateDummyProperty(selectedId);
+                  await repo.add(dummyProp);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added ${dummyProp.name}')));
+                  }
+                }
               },
             ),
         ],
       ),
       // ── Bottom bar shown only in reorder mode ──────────────────────────
-      bottomNavigationBar: _isReordering
-          ? SafeArea(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 12,
-                      offset: const Offset(0, -3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            _allProperties = List.from(_backupProperties);
-                            _isReordering = false;
-                          });
-                        },
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side: const BorderSide(color: AppColors.primary),
-                          foregroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: FilledButton.icon(
-                        onPressed: _saveOrder,
-                        icon: const Icon(Icons.check_rounded, size: 20),
-                        label: const Text('Save Order', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          backgroundColor: AppColors.primary,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : null,
-      floatingActionButton: _isReordering ? null : FloatingActionButton.extended(
+      bottomNavigationBar: null,
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: canAddProperty 
-            ? () => _showPropertyDialog(context, ref, repo)
+            ? () => _showPropertyDialog(context, ref, repo, currencySymbol: companyCurrency)
             : () => _showLimitDialog(context, company?.tier.includedProperties ?? 5, l10n),
         backgroundColor: canAddProperty ? AppColors.primary : Colors.grey.shade600,
         foregroundColor: Colors.white,
@@ -287,7 +266,6 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
               : Column(
                   children: [
                     // ── Search + Filter header ────────────────────────────
-                    if (!_isReordering)
                       Container(
                         color: AppColors.surface,
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -379,44 +357,6 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                       ),
                     const Divider(height: 1),
                     // ── List ─────────────────────────────────────────────
-                    if (_isReordering)
-                      Expanded(
-                        child: ReorderableListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          // Disable the built-in long-press drag handle so we can use
-                          // ReorderableDragStartListener on just the icon — this lets
-                          // iOS users drag immediately on touch-down without triggering
-                          // the scroll gesture first.
-                          buildDefaultDragHandles: false,
-                          itemCount: _allProperties.length,
-                          onReorder: (oldIndex, newIndex) {
-                            setState(() {
-                              if (oldIndex < newIndex) {
-                                newIndex -= 1;
-                              }
-                              final Property item = _allProperties.removeAt(oldIndex);
-                              _allProperties.insert(newIndex, item);
-                            });
-                          },
-                          itemBuilder: (context, index) {
-                            final property = _allProperties[index];
-                            return Card(
-                              key: ValueKey(property.id),
-                              margin: const EdgeInsets.only(bottom: 8),
-                              elevation: 2,
-                              child: ListTile(
-                                leading: ReorderableDragStartListener(
-                                  index: index,
-                                  child: const Icon(Icons.drag_handle, color: Colors.grey),
-                                ),
-                                title: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                subtitle: Text('${property.address}, ${property.city}'),
-                              ),
-                            );
-                          },
-                        ),
-                      )
-                    else
                       Expanded(
                         child: filtered.isEmpty
                             ? Center(
@@ -442,7 +382,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                                     property: property,
                                     index: globalIndex,
                                     currencySymbol: companyCurrency,
-                                    onEdit: () => _showPropertyDialog(context, ref, repo, existingProperty: property),
+                                    onEdit: () => _showPropertyDialog(context, ref, repo, existingProperty: property, currencySymbol: companyCurrency),
                                     onDelete: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
@@ -473,17 +413,19 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     );
   }
 
-  void _showPropertyDialog(BuildContext context, WidgetRef ref, PropertyRepository repo, {Property? existingProperty}) {
+  void _showPropertyDialog(BuildContext context, WidgetRef ref, PropertyRepository repo, {Property? existingProperty, String currencySymbol = '\$'}) {
     final isEditing = existingProperty != null;
     final nameController = TextEditingController(text: existingProperty?.name ?? '');
     final addressController = TextEditingController(text: existingProperty?.address ?? '');
     final zipCodeController = TextEditingController(text: existingProperty?.zipCode ?? '');
     final cityController = TextEditingController(text: existingProperty?.city ?? '');
-    final stateController = TextEditingController(text: existingProperty?.state ?? '');
-    final countryController = TextEditingController(text: existingProperty?.country ?? '');
-    final cleaningFeeController = TextEditingController(text: existingProperty?.cleaningFee.toString() ?? '');
+    final stateController = TextEditingController(text: isEditing ? existingProperty!.state : '');
+    final countryController = TextEditingController(text: isEditing ? existingProperty!.country : '');
+    final syncIdController = TextEditingController(text: isEditing ? existingProperty!.syncId : '');
+    final cleaningFeeController = TextEditingController(text: isEditing ? existingProperty!.cleaningFee.toStringAsFixed(2) : '');
     final sizeController = TextEditingController(text: existingProperty?.size ?? '');
     final ownerNameController = TextEditingController(text: existingProperty?.ownerName ?? '');
+
     final ownerPhoneController = TextEditingController(text: existingProperty?.ownerPhone ?? '');
     final ownerEmailController = TextEditingController(text: existingProperty?.ownerEmail ?? '');
     final propertyMgmtController = TextEditingController(text: existingProperty?.propertyManagement ?? '');
@@ -491,18 +433,17 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
     final housePinController = TextEditingController(text: existingProperty?.housePin ?? '');
     final garagePinController = TextEditingController(text: existingProperty?.garagePin ?? '');
     final cleaningInstructionsController = TextEditingController(text: existingProperty?.cleaningInstructions ?? '');
-    final bufferHoursController = TextEditingController(text: existingProperty?.bufferHours.toString() ?? '0');
     List<String> instructionPhotos = List.from(existingProperty?.instructionPhotos ?? []);
     List<String> checklists = List.from(existingProperty?.checklists ?? []);
     final newChecklistCtrl = TextEditingController();
+    
+    bool isCohost = existingProperty?.isCohost ?? false;
     final ImagePicker picker = ImagePicker();
     
     String selectedType = existingProperty?.propertyType == 'Apartment' || existingProperty?.propertyType == 'Other' 
         ? existingProperty!.propertyType 
         : 'House';
 
-    String selectedCadence = existingProperty?.recurringCadence ?? 'none';
-    String selectedTrashDay = existingProperty?.trashDay ?? '';
     String? selectedOwnerAccountId = existingProperty?.ownerAccountId;
 
     // Determine the user context for company access
@@ -602,6 +543,26 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                     children: [
                       buildCompanySelector(),
                       const SizedBox(height: 16),
+                      TextField(
+                        controller: syncIdController,
+                        decoration: InputDecoration(
+                          labelText: l10n.syncIdLabel,
+                          prefixIcon: const Icon(Icons.sync_alt),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(l10n.isCohostLabel),
+                        subtitle: Text(l10n.isCohostHelper, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                        value: isCohost,
+                        onChanged: (val) {
+                          setState(() {
+                            isCohost = val;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
                     buildResponsiveRow(
                       [
                         Expanded(
@@ -686,92 +647,27 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                           child: TextField(
                             controller: cleaningFeeController,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(labelText: l10n.cleaningFeeLabel, prefixIcon: const Icon(Icons.attach_money)),
+                            decoration: InputDecoration(
+                              labelText: l10n.cleaningFeeLabel, 
+                              prefixIcon: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Text(currencySymbol, style: const TextStyle(fontSize: 16)),
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: TextField(
                             controller: sizeController,
-                            decoration: InputDecoration(labelText: l10n.sizeLabel, prefixIcon: const Icon(Icons.aspect_ratio)),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_month_outlined, color: AppColors.teal, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.schedulingSettingsLabel,
-                            style: TextStyle(fontWeight: FontWeight.bold, color: hasSilverTier ? AppColors.textPrimary : AppColors.textSecondary),
-                            overflow: TextOverflow.visible,
-                          ),
-                        ),
-                        if (!hasSilverTier)
-                          const Padding(
-                            padding: EdgeInsets.only(left: 8),
-                            child: Icon(Icons.lock_outline, size: 14, color: AppColors.amber),
-                          )
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    buildResponsiveRow(
-                      [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            isExpanded: true,
-                            value: selectedCadence,
                             decoration: InputDecoration(
-                              labelText: l10n.recurringCleanCadenceLabel,
-                              enabled: hasSilverTier,
+                              labelText: l10n.sizeLabel, 
+                              hintText: 'e.g. 2x1x1',
+                              prefixIcon: const Icon(Icons.aspect_ratio)
                             ),
-                            items: [
-                              DropdownMenuItem(value: 'none', child: Text(l10n.cadenceNone)),
-                              DropdownMenuItem(value: 'weekly', child: Text(l10n.cadenceWeekly)),
-                              DropdownMenuItem(value: 'biweekly', child: Text(l10n.cadenceBiWeekly)),
-                              DropdownMenuItem(value: 'monthly', child: Text(l10n.cadenceMonthly)),
-                            ],
-                            onChanged: hasSilverTier ? (val) => setState(() => selectedCadence = val ?? 'none') : null,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            isExpanded: true,
-                            value: selectedTrashDay,
-                            decoration: InputDecoration(
-                              labelText: l10n.trashDayLabel,
-                              enabled: hasSilverTier,
-                            ),
-                            items: [
-                              DropdownMenuItem(value: '', child: Text(l10n.trashDayNone)),
-                              DropdownMenuItem(value: 'Monday', child: Text(l10n.trashDayMonday)),
-                              DropdownMenuItem(value: 'Tuesday', child: Text(l10n.trashDayTuesday)),
-                              DropdownMenuItem(value: 'Wednesday', child: Text(l10n.trashDayWednesday)),
-                              DropdownMenuItem(value: 'Thursday', child: Text(l10n.trashDayThursday)),
-                              DropdownMenuItem(value: 'Friday', child: Text(l10n.trashDayFriday)),
-                              DropdownMenuItem(value: 'Saturday', child: Text(l10n.trashDaySaturday)),
-                              DropdownMenuItem(value: 'Sunday', child: Text(l10n.trashDaySunday)),
-                            ],
-                            onChanged: hasSilverTier ? (val) => setState(() => selectedTrashDay = val ?? '') : null,
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: bufferHoursController,
-                      keyboardType: TextInputType.number,
-                      enabled: hasSilverTier,
-                      decoration: InputDecoration(
-                        labelText: l10n.bufferHoursLabel,
-                        hintText: l10n.bufferHoursHint,
-                        prefixIcon: const Icon(Icons.hourglass_empty),
-                        enabled: hasSilverTier,
-                      ),
                     ),
                   ],
                 ),
@@ -780,8 +676,10 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                 title: Text(l10n.stepOwnerMgmt, style: const TextStyle(fontSize: 13)),
                 isActive: currentStep >= 2,
                 state: currentStep > 2 ? StepState.complete : StepState.indexed,
-                content: Column(
-                  children: [
+                content: Padding(
+                  padding: const EdgeInsets.only(top: 16.0),
+                  child: Column(
+                    children: [
                     Consumer(
                       builder: (ctx, cref, _) {
                         final usersRef = cref.watch(userRepositoryProvider);
@@ -870,8 +768,9 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                   ],
                 ),
               ),
-              Step(
-                title: Text(l10n.stepAccessCleaning, style: const TextStyle(fontSize: 13)),
+            ),
+            Step(
+              title: Text(l10n.stepAccessCleaning, style: const TextStyle(fontSize: 13)),
                 isActive: currentStep >= 3,
                 state: currentStep > 3 ? StepState.complete : StepState.indexed,
                 content: Column(
@@ -1127,13 +1026,15 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                               housePin: housePinController.text.trim(),
                               garagePin: garagePinController.text.trim(),
                               order: isEditing ? existingProperty!.order : -1,
+                              syncId: syncIdController.text.trim(),
+                              isCohost: isCohost,
                               cleaningInstructions: cleaningInstructionsController.text.trim(),
                               instructionPhotos: instructionPhotos,
                               checklists: checklists,
                               ownerAccountId: selectedOwnerAccountId,
-                              recurringCadence: hasSilverTier ? selectedCadence : 'none',
-                              bufferHours: hasSilverTier ? (int.tryParse(bufferHoursController.text) ?? 0) : 0,
-                              trashDay: hasSilverTier ? selectedTrashDay : '',
+                              recurringCadence: existingProperty?.recurringCadence ?? 'none',
+                              bufferHours: existingProperty?.bufferHours ?? 0,
+                              trashDay: existingProperty?.trashDay ?? '',
                             );
 
                             if (isEditing) {
@@ -1213,13 +1114,15 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
                                         housePin: housePinController.text.trim(),
                                         garagePin: garagePinController.text.trim(),
                                         order: isEditing ? existingProperty!.order : -1,
+                                        syncId: syncIdController.text.trim(),
+                                        isCohost: isCohost,
                                         cleaningInstructions: cleaningInstructionsController.text.trim(),
                                         instructionPhotos: instructionPhotos,
                                         checklists: checklists,
                                         ownerAccountId: selectedOwnerAccountId,
-                                        recurringCadence: hasSilverTier ? selectedCadence : 'none',
-                                        bufferHours: hasSilverTier ? (int.tryParse(bufferHoursController.text) ?? 0) : 0,
-                                        trashDay: hasSilverTier ? selectedTrashDay : '',
+                                        recurringCadence: existingProperty?.recurringCadence ?? 'none',
+                                        bufferHours: existingProperty?.bufferHours ?? 0,
+                                        trashDay: existingProperty?.trashDay ?? '',
                                       );
 
                                       if (isEditing) {
@@ -1292,6 +1195,7 @@ class _PropertyManagementScreenState extends ConsumerState<PropertyManagementScr
       lockBoxPin: '${random.nextInt(9000) + 1000}',
       housePin: '${random.nextInt(9000) + 1000}',
       garagePin: '${random.nextInt(9000) + 1000}',
+      syncId: 'TEST-SYNC-${random.nextInt(1000)}',
       cleaningInstructions: 'Please ensure all sand is swept out and linens are washed.',
       instructionPhotos: [],
     );
@@ -1353,7 +1257,12 @@ class _PropertyCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(property.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.textPrimary)),
+                  child: Text(
+                    property.name,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppColors.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1382,6 +1291,8 @@ class _PropertyCard extends StatelessWidget {
                 child: Text(
                   '${property.address}, ${property.city}, ${property.state} ${property.zipCode}',
                   style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ]),

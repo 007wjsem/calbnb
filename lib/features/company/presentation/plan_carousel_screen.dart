@@ -1,14 +1,17 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:pay/pay.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:uuid/uuid.dart';
 import '../data/company_repository.dart';
+import '../../subscription/data/iap_service.dart';
 import '../domain/company.dart';
 import '../domain/subscription.dart';
 import '../domain/transaction_record.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/data/server_time_provider.dart';
 import 'package:calbnb/l10n/app_localizations.dart';
 
 class PlanCarouselScreen extends ConsumerStatefulWidget {
@@ -21,56 +24,89 @@ class PlanCarouselScreen extends ConsumerStatefulWidget {
 
 class _PlanCarouselScreenState extends ConsumerState<PlanCarouselScreen> {
   late PageController _pageController;
+  List<ProductDetails> _products = [];
+  bool _isLoadingProducts = true;
+  StreamSubscription<PurchaseDetails>? _iapSubscription;
 
   @override
   void initState() {
     super.initState();
     // Start at current tier index
     _pageController = PageController(viewportFraction: 0.85, initialPage: widget.company.tier.index);
+    _initializeIAP();
+  }
+
+  Future<void> _initializeIAP() async {
+    final iapService = ref.read(iapServiceProvider);
+    
+    // Listen to purchase updates
+    _iapSubscription = iapService.purchaseStream.listen((purchase) {
+      _handlePurchaseUpdate(purchase);
+    });
+
+    // Fetch products
+    final products = await iapService.fetchProducts();
+    if (mounted) {
+      setState(() {
+        _products = products;
+        _isLoadingProducts = false;
+      });
+    }
+  }
+
+  void _handlePurchaseUpdate(PurchaseDetails purchase) {
+    if (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.successfullyUpdatedPlan(''))),
+        );
+        Navigator.pop(context);
+      }
+    } else if (purchase.status == PurchaseStatus.error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Purchase failed: ${purchase.error?.message ?? 'Unknown error'}')),
+        );
+      }
+    }
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _iapSubscription?.cancel();
     super.dispose();
   }
 
-  void _onPaymentResult(Map<String, dynamic> result, SubscriptionTier tier) async {
+  Future<void> _subscribeToTier(SubscriptionTier tier) async {
+    final product = _products.firstWhere(
+      (p) => p.id == tier.productId,
+      orElse: () => throw Exception('Product not found for ${tier.displayName}'),
+    );
+
     try {
-      final now = DateTime.now();
-      final transaction = TransactionRecord(
-        id: const Uuid().v4(),
-        companyId: widget.company.id,
-        tierName: tier.displayName,
-        amount: tier.basePrice,
-        currency: 'USD',
-        paymentMethod: result.containsKey('apple_pay') ? 'Apple Pay' : (result.containsKey('google_pay') ? 'Google Pay' : 'Other'),
-        timestamp: now,
-        status: 'completed',
-        rawPayload: result,
-      );
-
-      final repo = ref.read(companyRepositoryProvider);
-      
-      // Save the raw monetary transaction log
-      await repo.saveTransaction(transaction);
-
-      // In a real app we'd send the token to our backend (Stripe) here.
-      // For demo execution we simulate success and update the firestore database directly.
-      await repo.renewSubscription(
-        companyId: widget.company.id,
-        tier: tier,
-      );
+      await ref.read(iapServiceProvider).buySubscription(product);
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.successfullyUpdatedPlan(tier.displayName))),
+          SnackBar(content: Text('Error initiating purchase: $e')),
         );
-        Navigator.pop(context);
       }
-    } catch(e) {
+    }
+  }
+
+  Future<void> _restorePurchases() async {
+    try {
+      await ref.read(iapServiceProvider).restorePurchases();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppLocalizations.of(context)!.errorUpdatingPlan(e.toString()))),
+          const SnackBar(content: Text('Restoring purchases...')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error restoring purchases: $e')),
         );
       }
     }
@@ -139,7 +175,14 @@ class _PlanCarouselScreenState extends ConsumerState<PlanCarouselScreen> {
       body: Column(
         children: [
           const SizedBox(height: 20),
-          Text(AppLocalizations.of(context)!.availablePlansDesc, style: const TextStyle(color: Colors.grey, fontSize: 16)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              AppLocalizations.of(context)!.availablePlansDesc,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ),
           const SizedBox(height: 30),
           Expanded(
             child: Stack(
@@ -258,7 +301,20 @@ class _PlanCarouselScreenState extends ConsumerState<PlanCarouselScreen> {
             },
           ),
           
-          const SizedBox(height: 40),
+          const SizedBox(height: 16),
+          
+          // Restore Purchases Button
+          TextButton.icon(
+            onPressed: _restorePurchases,
+            icon: const Icon(Icons.restore, size: 18),
+            label: const Text('Restore Purchases'),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textSecondary,
+              textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -269,13 +325,7 @@ class _PlanCarouselScreenState extends ConsumerState<PlanCarouselScreen> {
     final features = _getTierFeatures(tier);
     final isRecommended = tier == SubscriptionTier.gold;
 
-    final payItems = [
-      PaymentItem(
-        label: '${tier.displayName} Subscription',
-        amount: tier.basePrice.toStringAsFixed(2),
-        status: PaymentItemStatus.final_price,
-      )
-    ];
+    final bool isAvailable = _products.any((p) => p.id == tier.productId);
 
     return AnimatedBuilder(
       animation: _pageController,
@@ -317,10 +367,17 @@ class _PlanCarouselScreenState extends ConsumerState<PlanCarouselScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    '\$${tier.basePrice.toStringAsFixed(tier.basePrice == 0 ? 0 : 2)}',
-                    style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: AppColors.primaryDark),
-                    textAlign: TextAlign.center,
+                  Builder(
+                    builder: (context) {
+                      final product = _products.where((p) => p.id == tier.productId).firstOrNull;
+                      final priceString = product?.price ?? '\$${tier.basePrice.toStringAsFixed(tier.basePrice == 0 ? 0 : 2)}';
+                      
+                      return Text(
+                        priceString,
+                        style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: AppColors.primaryDark),
+                        textAlign: TextAlign.center,
+                      );
+                    },
                   ),
                   Text(
                     AppLocalizations.of(context)!.perMonthLabel,
@@ -367,7 +424,16 @@ class _PlanCarouselScreenState extends ConsumerState<PlanCarouselScreen> {
                     )
                   else if (tier.basePrice == 0)
                      ElevatedButton(
-                        onPressed: () => _onPaymentResult({}, tier),
+                        onPressed: () {
+                          // Free tier downgrade doesn't need IAP
+                          final now = ref.read(currentServerTimeProvider);
+                          ref.read(companyRepositoryProvider).renewSubscription(
+                            companyId: widget.company.id,
+                            tier: tier,
+                            now: now,
+                          );
+                          Navigator.pop(context);
+                        },
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           backgroundColor: AppColors.primary,
@@ -380,14 +446,14 @@ class _PlanCarouselScreenState extends ConsumerState<PlanCarouselScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () => _showConfirmationDialog(context, tier, payItems),
+                        onPressed: !isAvailable ? null : () => _showConfirmationDialog(context, tier),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           backgroundColor: Colors.black87,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        child: const Text('Select Plan', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: Text(_isLoadingProducts ? 'Loading...' : (isAvailable ? 'Select Plan' : 'Unavailable')),
                       ),
                     ),
                 ],
@@ -419,7 +485,7 @@ class _PlanCarouselScreenState extends ConsumerState<PlanCarouselScreen> {
     );
   }
 
-  void _showConfirmationDialog(BuildContext context, SubscriptionTier tier, List<PaymentItem> payItems) {
+  void _showConfirmationDialog(BuildContext context, SubscriptionTier tier) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -449,110 +515,27 @@ class _PlanCarouselScreenState extends ConsumerState<PlanCarouselScreen> {
               ),
               const SizedBox(height: 32),
               
-              // Apple Pay Button
-              ApplePayButton(
-                paymentConfiguration: PaymentConfiguration.fromJsonString('''
-{
-  "provider": "apple_pay",
-  "data": {
-    "merchantIdentifier": "merchant.com.yourcompany.calbnb",
-    "displayName": "Calbnb ${tier.displayName} Subscription",
-    "merchantCapabilities": ["3DS", "debit", "credit"],
-    "supportedNetworks": ["amex", "visa", "discover", "masterCard"],
-    "countryCode": "US",
-    "currencyCode": "USD"
-  }
-}
-'''),
-                paymentItems: payItems,
-                type: ApplePayButtonType.subscribe,
-                margin: const EdgeInsets.only(top: 8.0),
-                onPaymentResult: (res) {
-                  Navigator.pop(context);
-                  _onPaymentResult(res, tier);
-                },
-                loadingIndicator: const Center(child: CircularProgressIndicator()),
-                childOnError: const SizedBox.shrink(),
-                onError: (error) {
-                  debugPrint("Apple Pay error: \$error");
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("There was an issue with the payment method."),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                },
-              ),
-              const SizedBox(height: 8),
-              
-              // Google Pay Button
+              // Action Button (Store native)
               SizedBox(
-                width: 250,
-                height: 50,
-                child: GooglePayButton(
-                  paymentConfiguration: PaymentConfiguration.fromJsonString('''
-{
-  "provider": "google_pay",
-  "data": {
-    "environment": "TEST",
-    "apiVersion": 2,
-    "apiVersionMinor": 0,
-    "allowedPaymentMethods": [
-      {
-        "type": "CARD",
-        "tokenizationSpecification": {
-          "type": "PAYMENT_GATEWAY",
-          "parameters": {
-            "gateway": "example",
-            "gatewayMerchantId": "exampleGatewayMerchantId"
-          }
-        },
-        "parameters": {
-          "allowedCardNetworks": ["VISA", "MASTERCARD"],
-          "allowedAuthMethods": ["PAN_ONLY", "CRYPTOGRAM_3DS"],
-          "billingAddressRequired": true,
-          "billingAddressParameters": {
-            "format": "FULL",
-            "phoneNumberRequired": true
-          }
-        }
-      }
-    ],
-    "merchantInfo": {
-      "merchantId": "01234567890123456789",
-      "merchantName": "Calbnb"
-    },
-    "transactionInfo": {
-      "countryCode": "US",
-      "currencyCode": "USD"
-    }
-  }
-}
-'''),
-                paymentItems: payItems,
-                type: GooglePayButtonType.subscribe,
-                theme: GooglePayButtonTheme.dark,
-                margin: const EdgeInsets.only(top: 8.0),
-                  onPaymentResult: (res) {
+                width: double.infinity,
+                height: 56,
+                child: FilledButton(
+                  onPressed: () {
                     Navigator.pop(context);
-                    _onPaymentResult(res, tier);
+                    _subscribeToTier(tier);
                   },
-                  loadingIndicator: const Center(child: CircularProgressIndicator()),
-                  childOnError: const SizedBox.shrink(),
-                  onError: (error) {
-                    debugPrint("Google Pay error: \$error");
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("There was an issue with the payment method."),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: Text('Subscribe with ${Theme.of(context).platform == TargetPlatform.iOS ? 'Apple' : 'Google'}'),
                 ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Payment will be charged to your ${Theme.of(context).platform == TargetPlatform.iOS ? 'Apple ID' : 'Google Play'} account at confirmation of purchase.',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                textAlign: TextAlign.center,
               ),
             ],
           ),

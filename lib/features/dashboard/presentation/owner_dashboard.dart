@@ -10,7 +10,6 @@ import '../../calendar/domain/cleaning_assignment.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:calbnb/l10n/app_localizations.dart';
-import '../../../core/constants/roles.dart';
 
 /// Read-only dashboard for Property Owners
 class OwnerDashboard extends ConsumerStatefulWidget {
@@ -32,8 +31,8 @@ class _OwnerDashboardState extends ConsumerState<OwnerDashboard> {
       return const Scaffold(body: Center(child: Text('Access Denied or Not logged in')));
     }
 
-    // Fetch ONLY properties that are linked to this specific owner Account.
-    final repoAsync = ref.watch(propertyRepositoryProvider);
+    // Reactively watch properties — updates in real-time when Admin assigns a property.
+    final propertiesAsync = ref.watch(propertiesStreamProvider);
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
@@ -51,17 +50,10 @@ class _OwnerDashboardState extends ConsumerState<OwnerDashboard> {
           ),
         ],
       ),
-      body: FutureBuilder<List<Property>>(
-        future: repoAsync.fetchAll(),
-        builder: (ctx, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          final allProps = snapshot.data ?? [];
+      body: propertiesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (allProps) {
           final myProps = allProps.where((p) => p.ownerAccountId == user.id).toList();
 
           if (myProps.isEmpty) {

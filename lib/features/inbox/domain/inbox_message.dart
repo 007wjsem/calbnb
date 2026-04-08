@@ -26,7 +26,7 @@ class InboxMessage {
       senderRole: map['senderRole']?.toString() ?? '',
       body: map['body']?.toString() ?? '',
       createdAt: map['createdAt'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['createdAt'] as int)
+          ? DateTime.fromMillisecondsSinceEpoch((map['createdAt'] as num).toInt())
           : DateTime.now(),
       readBy: readByRaw.keys.map((k) => k.toString()).toSet(),
     );

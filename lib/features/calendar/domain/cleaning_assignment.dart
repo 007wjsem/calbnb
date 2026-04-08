@@ -1,9 +1,28 @@
+import 'package:calbnb/l10n/app_localizations.dart';
+
 enum CleaningStatus {
   assigned,
   inProgress,
   pendingInspection,
   fixNeeded,
   approved,
+}
+
+extension CleaningStatusExtension on CleaningStatus {
+  String localizedName(AppLocalizations l10n) {
+    switch (this) {
+      case CleaningStatus.assigned:
+        return l10n.statusAssigned;
+      case CleaningStatus.inProgress:
+        return l10n.statusInProgress;
+      case CleaningStatus.pendingInspection:
+        return l10n.statusPendingInspection;
+      case CleaningStatus.fixNeeded:
+        return l10n.statusFixNeeded;
+      case CleaningStatus.approved:
+        return l10n.statusApprovedCompleted;
+    }
+  }
 }
 
 class IncidentReport {
@@ -50,13 +69,35 @@ class InspectionFinding {
   };
 }
 
+class CleanerWithFee {
+  final String id;
+  final String name;
+  final double fee;
+
+  CleanerWithFee({required this.id, required this.name, required this.fee});
+
+  factory CleanerWithFee.fromMap(Map<dynamic, dynamic> map) {
+    return CleanerWithFee(
+      id: map['id']?.toString() ?? '',
+      name: map['name']?.toString() ?? '',
+      fee: double.tryParse(map['fee']?.toString() ?? '0') ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'id': id,
+    'name': name,
+    'fee': fee,
+  };
+}
+
 class CleaningAssignment {
   final String id;
-  final String companyId; // <-- NEW
+  final String companyId;
   final String reservationId; // The ID of the Checkout reservation
   final String propertyId;
-  final String cleanerId; // Employee ID
-  final String cleanerName; // Employee Name (cached for easy display)
+  final List<CleanerWithFee> cleaners;
+  final String mainCleanerId;
   final String? inspectorId; 
   final String? inspectorName;
   final String date; // YYYY-MM-DD
@@ -65,6 +106,7 @@ class CleaningAssignment {
   final CleaningStatus status;
   final String startTime;
   final String endTime;
+  final double propertyCleaningFee; // Amount charged to the owner
   final List<String> proofPhotos;
   final List<IncidentReport> incidents;
   final List<InspectionFinding> findings;
@@ -74,8 +116,8 @@ class CleaningAssignment {
     required this.companyId,
     required this.reservationId,
     required this.propertyId,
-    required this.cleanerId,
-    required this.cleanerName,
+    required this.cleaners,
+    required this.mainCleanerId,
     this.inspectorId,
     this.inspectorName,
     required this.date,
@@ -84,6 +126,7 @@ class CleaningAssignment {
     this.status = CleaningStatus.assigned,
     this.startTime = '',
     this.endTime = '',
+    this.propertyCleaningFee = 0.0,
     this.proofPhotos = const [],
     this.incidents = const [],
     this.findings = const [],
@@ -94,8 +137,8 @@ class CleaningAssignment {
     String? companyId,
     String? reservationId,
     String? propertyId,
-    String? cleanerId,
-    String? cleanerName,
+    List<CleanerWithFee>? cleaners,
+    String? mainCleanerId,
     String? inspectorId,
     String? inspectorName,
     String? date,
@@ -104,6 +147,7 @@ class CleaningAssignment {
     CleaningStatus? status,
     String? startTime,
     String? endTime,
+    double? propertyCleaningFee,
     List<String>? proofPhotos,
     List<IncidentReport>? incidents,
     List<InspectionFinding>? findings,
@@ -113,8 +157,8 @@ class CleaningAssignment {
       companyId: companyId ?? this.companyId,
       reservationId: reservationId ?? this.reservationId,
       propertyId: propertyId ?? this.propertyId,
-      cleanerId: cleanerId ?? this.cleanerId,
-      cleanerName: cleanerName ?? this.cleanerName,
+      cleaners: cleaners ?? this.cleaners,
+      mainCleanerId: mainCleanerId ?? this.mainCleanerId,
       inspectorId: inspectorId ?? this.inspectorId,
       inspectorName: inspectorName ?? this.inspectorName,
       date: date ?? this.date,
@@ -123,6 +167,7 @@ class CleaningAssignment {
       status: status ?? this.status,
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
+      propertyCleaningFee: propertyCleaningFee ?? this.propertyCleaningFee,
       proofPhotos: proofPhotos ?? this.proofPhotos,
       incidents: incidents ?? this.incidents,
       findings: findings ?? this.findings,
@@ -130,13 +175,29 @@ class CleaningAssignment {
   }
 
   factory CleaningAssignment.fromMap(String id, Map<dynamic, dynamic> map) {
+    // Migration logic for multiple cleaners
+    List<CleanerWithFee> cleanersList = [];
+    if (map['cleaners'] != null) {
+      final List<dynamic> cleanersRaw = map['cleaners'] as List<dynamic>;
+      cleanersList = cleanersRaw.map((e) => CleanerWithFee.fromMap(e as Map<dynamic, dynamic>)).toList();
+    } else if (map['cleanerId'] != null) {
+      // Legacy single cleaner data
+      cleanersList = [
+        CleanerWithFee(
+          id: map['cleanerId'].toString(),
+          name: map['cleanerName']?.toString() ?? '',
+          fee: double.tryParse(map['cleanerFee']?.toString() ?? '0') ?? 0.0,
+        )
+      ];
+    }
+
     return CleaningAssignment(
       id: id,
       companyId: map['companyId']?.toString() ?? '',
       reservationId: map['reservationId']?.toString() ?? '',
       propertyId: map['propertyId']?.toString() ?? '',
-      cleanerId: map['cleanerId']?.toString() ?? '',
-      cleanerName: map['cleanerName']?.toString() ?? '',
+      cleaners: cleanersList,
+      mainCleanerId: map['mainCleanerId']?.toString() ?? (cleanersList.isNotEmpty ? cleanersList.first.id : ''),
       inspectorId: map['inspectorId']?.toString(),
       inspectorName: map['inspectorName']?.toString(),
       date: map['date']?.toString() ?? '',
@@ -148,6 +209,7 @@ class CleaningAssignment {
       ),
       startTime: map['startTime']?.toString() ?? '',
       endTime: map['endTime']?.toString() ?? '',
+      propertyCleaningFee: double.tryParse(map['propertyCleaningFee']?.toString() ?? '0') ?? 0.0,
       proofPhotos: (map['proofPhotos'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
       incidents: (map['incidents'] as List<dynamic>?)?.map((e) => IncidentReport.fromMap(e as Map<dynamic, dynamic>)).toList() ?? [],
       findings: (map['findings'] as List<dynamic>?)?.map((e) => InspectionFinding.fromMap(e as Map<dynamic, dynamic>)).toList() ?? [],
@@ -159,8 +221,8 @@ class CleaningAssignment {
       'companyId': companyId,
       'reservationId': reservationId,
       'propertyId': propertyId,
-      'cleanerId': cleanerId,
-      'cleanerName': cleanerName,
+      'cleaners': cleaners.map((e) => e.toMap()).toList(),
+      'mainCleanerId': mainCleanerId,
       'inspectorId': inspectorId,
       'inspectorName': inspectorName,
       'date': date,
@@ -169,6 +231,7 @@ class CleaningAssignment {
       'status': status.name,
       'startTime': startTime,
       'endTime': endTime,
+      'propertyCleaningFee': propertyCleaningFee,
       'proofPhotos': proofPhotos,
       'incidents': incidents.map((e) => e.toMap()).toList(),
       'findings': findings.map((e) => e.toMap()).toList(),

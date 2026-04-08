@@ -13,6 +13,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:calbnb/l10n/app_localizations.dart';
 import '../../company/domain/subscription.dart';
 import '../../company/data/company_repository.dart';
+import '../../auth/domain/user.dart' as domain_user;
+import '../../../core/constants/roles.dart';
 import '../../../core/theme/app_colors.dart';
 
 class CleanerDashboard extends ConsumerStatefulWidget {
@@ -244,7 +246,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
 
                 final myAssignments = canSeeAll 
                     ? pendingAssignments
-                    : pendingAssignments.where((a) => a.cleanerId == currentUser?.id).toList();
+                    : pendingAssignments.where((a) => a.cleaners.any((c) => c.id == currentUser?.id)).toList();
 
                 // Sort by status, then sort by checkout date (closest checkouts first)
                 myAssignments.sort((a, b) {
@@ -253,46 +255,45 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                   return a.date.compareTo(b.date);
                 });
 
-                // Extract the active job (there should logically only be one at a time)
-                final inProgressJob = myAssignments.where((a) => a.status == CleaningStatus.inProgress).firstOrNull;
+                // Extract all in-progress jobs
+                final inProgressJobs = myAssignments.where((a) => a.status == CleaningStatus.inProgress).toList();
                 
-                // Remove the active job from the standard list view so it's not duplicated
+                // Remove active jobs from the standard list view so they're not duplicated
                 final remainingJobs = myAssignments.where((a) => a.status != CleaningStatus.inProgress).toList();
 
-                return Column(
+                return ListView(
                   children: [
-                    if (inProgressJob != null) ...[
-                      FutureBuilder<List<Property>>(
-                        future: propertiesAsync.fetchAll(),
-                        builder: (ctx, snap) {
-                          final props = snap.data ?? [];
-                          final property = props.where((p) => p.name == inProgressJob.propertyId).firstOrNull;
-                          return _buildActiveJobCard(inProgressJob, property);
-                        }
-                      ),
-                      const SizedBox(height: 16),
+                    if (inProgressJobs.isNotEmpty) ...[
+                      ...inProgressJobs.map((job) {
+                        return FutureBuilder<List<Property>>(
+                          future: propertiesAsync.fetchAll(),
+                          builder: (ctx, snap) {
+                            final props = snap.data ?? [];
+                            final property = props.where((p) => p.name == job.propertyId).firstOrNull;
+                            return _buildActiveJobCard(job, property, currentUser);
+                          }
+                        );
+                      }),
+                      const SizedBox(height: 8),
                       if (remainingJobs.isNotEmpty)
                          const Divider()
                     ],
                     if (remainingJobs.isNotEmpty)
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: remainingJobs.length,
-                          itemBuilder: (context, index) {
-                            final assignment = remainingJobs[index];
-                            return FutureBuilder<List<Property>>(
-                              future: propertiesAsync.fetchAll(),
-                              builder: (ctx, snap) {
-                                final props = snap.data ?? [];
-                                final property = props.where((p) => p.name == assignment.propertyId).firstOrNull;
-                                return _buildJobCard(assignment, property);
-                              }
-                            );
-                          },
-                        ),
-                      )
-                    else if (inProgressJob == null)
-                       Expanded(child: Center(child: Text(AppLocalizations.of(context)!.noPendingAssignmentsDesc)))
+                      ...remainingJobs.map((assignment) {
+                         return FutureBuilder<List<Property>>(
+                          future: propertiesAsync.fetchAll(),
+                          builder: (ctx, snap) {
+                            final props = snap.data ?? [];
+                            final property = props.where((p) => p.name == assignment.propertyId).firstOrNull;
+                            return _buildJobCard(assignment, property, currentUser);
+                          }
+                        );
+                      })
+                    else if (inProgressJobs.isEmpty)
+                       SizedBox(
+                         height: MediaQuery.of(context).size.height * 0.5,
+                         child: Center(child: Text(AppLocalizations.of(context)!.noPendingAssignmentsDesc))
+                       )
                   ],
                 );
               },
@@ -305,7 +306,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
     );
   }
 
-  Widget _buildActiveJobCard(CleaningAssignment assignment, Property? property) {
+  Widget _buildActiveJobCard(CleaningAssignment assignment, Property? property, domain_user.User? currentUser) {
     return Card(
       elevation: 2,
       margin: const EdgeInsets.only(bottom: 24),
@@ -344,7 +345,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                       const SizedBox(height: 8),
                       Text(
                         assignment.propertyId, // Property Name
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -437,44 +438,87 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
             const SizedBox(height: 12),
 
             // Actionable buttons
-            Row(
-              children: [
-                Expanded(
-                  flex: 1,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showReportIncidentDialog(assignment),
-                    icon: const Icon(Icons.warning_amber),
-                    label: Text(AppLocalizations.of(context)!.reportIncidentAction),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.orange.shade800,
-                      side: BorderSide(color: Colors.orange.shade800),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 1,
-                  child: Consumer(
-                    builder: (context, ref, _) {
-                      final companyAsync = ref.watch(companyProvider(assignment.companyId));
-                      final hasBronze = companyAsync.unwrapPrevious().valueOrNull?.tier.index != null && 
-                                        companyAsync.unwrapPrevious().valueOrNull!.tier.index >= SubscriptionTier.bronze.index;
-
-                      return ElevatedButton.icon(
-                        onPressed: () => _showChecklistDialog(assignment, property, requiresPhotoEvidence: hasBronze),
-                        icon: const Icon(Icons.check_circle_outline),
-                        label: Text(AppLocalizations.of(context)!.finishJobAction),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade700,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+            Builder(
+              builder: (context) {
+                final isMainCleaner = assignment.mainCleanerId == currentUser?.id;
+                final l10n = AppLocalizations.of(context)!;
+                
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!isMainCleaner)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.blue.shade200)),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(child: Text(l10n.assistantPermissionNotice, style: TextStyle(color: Colors.blue.shade700, fontSize: 13))),
+                            ],
+                          ),
                         ),
-                      );
-                    }
-                  ),
-                ),
-              ],
+                      ),
+                    if (currentUser?.role == AppRole.superAdmin || currentUser?.role == AppRole.administrator)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12.0),
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final repo = ref.read(cleaningRepositoryProvider);
+                            await repo.deleteAssignment(assignment.date, assignment.reservationId, assignment.companyId);
+                          },
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          label: const Text('Cancel Cleaning', style: TextStyle(color: Colors.red)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showReportIncidentDialog(assignment),
+                            icon: const Icon(Icons.warning_amber),
+                            label: Text(l10n.reportIncidentAction, overflow: TextOverflow.ellipsis),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.orange.shade800,
+                              side: BorderSide(color: Colors.orange.shade800),
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 1,
+                          child: Consumer(
+                            builder: (context, ref, _) {
+                              final companyAsync = ref.watch(companyProvider(assignment.companyId));
+                              final hasBronze = companyAsync.unwrapPrevious().valueOrNull?.tier.index != null && 
+                                                companyAsync.unwrapPrevious().valueOrNull!.tier.index >= SubscriptionTier.bronze.index;
+
+                              return ElevatedButton.icon(
+                                onPressed: isMainCleaner ? () => _showChecklistDialog(assignment, property, requiresPhotoEvidence: hasBronze) : null,
+                                icon: const Icon(Icons.check_circle_outline),
+                                label: Text(l10n.finishJobAction, overflow: TextOverflow.ellipsis),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isMainCleaner ? Colors.blue.shade700 : Colors.grey.shade400,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                              );
+                            }
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              }
             )
           ],
         ),
@@ -482,7 +526,7 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
     );
   }
 
-  Widget _buildJobCard(CleaningAssignment assignment, Property? property) {
+  Widget _buildJobCard(CleaningAssignment assignment, Property? property, domain_user.User? currentUser) {
     Color statusColor;
     String statusText;
     switch(assignment.status) {
@@ -607,22 +651,49 @@ class _CleanerDashboardState extends ConsumerState<CleanerDashboard> {
                ),
             ],
 
-            const Divider(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                 if (assignment.status == CleaningStatus.assigned || assignment.status == CleaningStatus.fixNeeded) ...[
-                   ElevatedButton.icon(
-                      onPressed: () => _updateStatus(assignment, CleaningStatus.inProgress, startTimer: true),
-                      icon: const Icon(Icons.play_arrow),
-                      label: Text(AppLocalizations.of(context)!.startJobAction),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                   ),
-                 ],
-                 if (assignment.status == CleaningStatus.inProgress) ...[
-                   // Active jobs are now handled entirely by _buildActiveJobCard
-                 ]
-              ],
+            Builder(
+              builder: (context) {
+                final isMainCleaner = assignment.mainCleanerId == currentUser?.id;
+                final l10n = AppLocalizations.of(context)!;
+                
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (!isMainCleaner)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(l10n.assistantPermissionNotice, style: TextStyle(color: Colors.blue.shade700, fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                      ),
+                    if (currentUser?.role == AppRole.superAdmin || currentUser?.role == AppRole.administrator)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final repo = ref.read(cleaningRepositoryProvider);
+                            await repo.deleteAssignment(assignment.date, assignment.reservationId, assignment.companyId);
+                          },
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          label: const Text('Cancel Cleaning', style: TextStyle(color: Colors.red)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                        ),
+                      ),
+                    if (assignment.status == CleaningStatus.assigned || assignment.status == CleaningStatus.fixNeeded)
+                      ElevatedButton.icon(
+                        onPressed: isMainCleaner ? () => _updateStatus(assignment, CleaningStatus.inProgress, startTimer: true) : null,
+                        icon: const Icon(Icons.play_arrow),
+                        label: Text(l10n.startJobAction),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isMainCleaner ? Colors.blue : Colors.grey.shade400, 
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                  ],
+                );
+              }
             )
           ],
         ),

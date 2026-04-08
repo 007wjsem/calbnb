@@ -41,10 +41,19 @@ class UserRepository {
         role: _roleFromString(value['role']?.toString() ?? 'Cleaner'),
         email: value['email']?.toString(),
         phone: value['phone']?.toString(),
+        phoneCountryCode: value['phoneCountryCode']?.toString(),
         address: value['address']?.toString(),
         emergencyContact: value['emergencyContact']?.toString(),
-        payRate: value['payRate'] != null ? double.tryParse(value['payRate'].toString()) : null,
         isActive: value['isActive'] as bool? ?? true,
+        companyIds: (value['companyIds'] is List)
+            ? (value['companyIds'] as List).map((x) => x.toString()).toList()
+            : (value['companyIds'] is Map)
+                ? (value['companyIds'] as Map).keys.map((x) => x.toString()).toList()
+                : (value['companyId'] != null)
+                    ? [value['companyId'].toString()]
+                    : [],
+        activeCompanyId: value['activeCompanyId']?.toString() ?? (value['companyId']?.toString()),
+        language: value['language']?.toString(),
       );
     }).toList();
   }
@@ -77,9 +86,10 @@ class UserRepository {
       if (companyIds != null) 'companyIds': companyIds,
       if (activeCompanyId != null) 'activeCompanyId': activeCompanyId,
       if (user.phone != null) 'phone': user.phone,
+      if (user.phoneCountryCode != null) 'phoneCountryCode': user.phoneCountryCode,
       if (user.address != null) 'address': user.address,
       if (user.emergencyContact != null) 'emergencyContact': user.emergencyContact,
-      if (user.payRate != null) 'payRate': user.payRate,
+      if (user.language != null) 'language': user.language,
     });
   }
 
@@ -89,9 +99,12 @@ class UserRepository {
       'role': user.role.displayName, // Ensure it's displaying name, not .name Enum identifier
       if (user.email != null) 'email': user.email,
       'phone': user.phone,
+      'phoneCountryCode': user.phoneCountryCode,
       'address': user.address,
       'emergencyContact': user.emergencyContact,
-      'payRate': user.payRate,
+      'companyIds': user.companyIds,
+      'activeCompanyId': user.activeCompanyId,
+      'language': user.language,
     });
   }
 
@@ -128,5 +141,136 @@ class UserRepository {
       default:
         return AppRole.cleaner;
     }
+  }
+}
+
+final companyCleanersProvider = StreamProvider.family<List<User>, String>((ref, companyId) {
+  final database = FirebaseDatabase.instance.ref('users');
+  
+  return database.onValue.map((event) {
+    final raw = event.snapshot.value;
+    if (raw == null) return [];
+
+    Iterable<MapEntry<dynamic, dynamic>> entries;
+    if (raw is Map) {
+      entries = raw.entries;
+    } else if (raw is List) {
+      entries = List<dynamic>.from(raw).asMap().entries;
+    } else {
+      return [];
+    }
+
+    final List<User> cleaners = [];
+    for (final e in entries) {
+      if (e.value is! Map) continue;
+      final value = e.value as Map;
+      
+      // Basic isActive check
+      if (value['isActive'] == false) continue;
+
+      // Robust Company ID parsing (Synchronize with fetchAll logic)
+      final List<String> userCompanyIds = [];
+      if (value['companyIds'] is List) {
+        userCompanyIds.addAll((value['companyIds'] as List).map((x) => x.toString()));
+      } else if (value['companyIds'] is Map) {
+        userCompanyIds.addAll((value['companyIds'] as Map).keys.map((x) => x.toString()));
+      }
+      
+      final String? userActiveCompanyId = value['activeCompanyId']?.toString() ?? value['companyId']?.toString();
+      if (userActiveCompanyId != null && !userCompanyIds.contains(userActiveCompanyId)) {
+        userCompanyIds.add(userActiveCompanyId);
+      }
+
+      // Final association check
+      if (userCompanyIds.contains(companyId)) {
+        final roleStr = value['role']?.toString() ?? 'Cleaner';
+        // We include both Cleaners and Managers who might be performing cleaning tasks
+        if (roleStr == 'Cleaner' || roleStr == 'Manager') {
+           cleaners.add(User(
+            id: e.key.toString(),
+            username: value['username']?.toString() ?? 'Unknown',
+            role: roleStr == 'Manager' ? AppRole.manager : AppRole.cleaner,
+            email: value['email']?.toString(),
+            phone: value['phone']?.toString(),
+            phoneCountryCode: value['phoneCountryCode']?.toString(),
+            address: value['address']?.toString(),
+            emergencyContact: value['emergencyContact']?.toString(),
+            isActive: true,
+            companyIds: userCompanyIds,
+            activeCompanyId: userActiveCompanyId,
+            language: value['language']?.toString(),
+          ));
+        }
+      }
+    }
+    
+    cleaners.sort((a, b) => a.username.toLowerCase().compareTo(b.username.toLowerCase()));
+    return cleaners;
+  });
+});
+
+final companyMembersProvider = StreamProvider.family<List<User>, String>((ref, companyId) {
+  final database = FirebaseDatabase.instance.ref('users');
+  
+  return database.onValue.map((event) {
+    final raw = event.snapshot.value;
+    if (raw == null) return [];
+
+    Iterable<MapEntry<dynamic, dynamic>> entries;
+    if (raw is Map) {
+      entries = raw.entries;
+    } else if (raw is List) {
+      entries = List<dynamic>.from(raw).asMap().entries;
+    } else {
+      return [];
+    }
+
+    final List<User> members = [];
+    for (final e in entries) {
+      if (e.value is! Map) continue;
+      final value = e.value as Map;
+      
+      if (value['isActive'] == false) continue;
+
+      final List<String> userCompanyIds = [];
+      if (value['companyIds'] is List) {
+        userCompanyIds.addAll((value['companyIds'] as List).map((x) => x.toString()));
+      } else if (value['companyIds'] is Map) {
+        userCompanyIds.addAll((value['companyIds'] as Map).keys.map((x) => x.toString()));
+      }
+      
+      final String? userActiveCompanyId = value['activeCompanyId']?.toString() ?? value['companyId']?.toString();
+      if (userActiveCompanyId != null && !userCompanyIds.contains(userActiveCompanyId)) {
+        userCompanyIds.add(userActiveCompanyId);
+      }
+
+      if (userCompanyIds.contains(companyId)) {
+        members.add(User(
+          id: e.key.toString(),
+          username: value['username']?.toString() ?? 'Unknown',
+          role: _roleFromString(value['role']?.toString() ?? 'Cleaner'),
+          email: value['email']?.toString(),
+          isActive: true,
+          companyIds: userCompanyIds,
+          activeCompanyId: userActiveCompanyId,
+          language: value['language']?.toString(),
+        ));
+      }
+    }
+    
+    members.sort((a, b) => a.username.toLowerCase().compareTo(b.username.toLowerCase()));
+    return members;
+  });
+});
+
+AppRole _roleFromString(String roleStr) {
+  switch (roleStr) {
+    case 'Super Admin': return AppRole.superAdmin;
+    case 'Administrator': return AppRole.administrator;
+    case 'Manager': return AppRole.manager;
+    case 'Cleaner': return AppRole.cleaner;
+    case 'Inspector': return AppRole.inspector;
+    case 'Property Owner': return AppRole.owner;
+    default: return AppRole.cleaner;
   }
 }
